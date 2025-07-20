@@ -18,6 +18,9 @@ export class Chat {
   @Column()
   content: string;
 
+  @Column({ default: false })
+  isAiResponse: boolean;
+
   @ManyToOne(() => User, { eager: true })
   @JoinColumn({ name: 'sender_id' })
   sender: User;

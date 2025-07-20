@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat App Test Client</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      .section {
+        margin: 20px 0;
+        padding: 15px;
+        border: 1px solid #ccc;
+      }
+      input,
+      textarea,
+      button {
+        margin: 5px;
+        padding: 8px;
+      }
+      .log {
+        background: #f5f5f5;
+        padding: 10px;
+        height: 200px;
+        overflow-y: auto;
+        font-family: monospace;
+      }
+      .connected {
+        color: green;
+      }
+      .error {
+        color: red;
+      }
+      .message {
+        margin: 5px 0;
+      }
+      .user-message {
+        color: blue;
+        font-weight: bold;
+      }
+      .ai-message {
+        color: purple;
+        font-weight: bold;
+        background: #f8f4ff;
+        padding: 5px;
+        border-radius: 3px;
+        border-left: 3px solid purple;
+        margin: 5px 0;
+      }
+      .waiting-ai {
+        color: orange;
+        font-style: italic;
+      }
+      .room-created {
+        color: #28a745;
+        font-weight: bold;
+        background: #d4edda;
+        padding: 10px;
+        border-radius: 5px;
+        margin: 10px 0;
+        border: 1px solid #c3e6cb;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🤖 NestJS AI Chat Test Client</h1>
+      <p>
+        <strong>Test your AI-powered chat!</strong> Send messages and watch the
+        AI respond in real-time.
+      </p>
+
+      <!-- Test Token Section -->
+      <div
+        class="section"
+        style="background: #fff3cd; border: 1px solid #ffeaa7"
+      >
+        <h2>🔑 Working JWT Token</h2>
+        <p><strong>Copy this token to test AI chat:</strong></p>
+        <input
+          type="text"
+          readonly
+          value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2ZjBlMDk1Ni02YmZlLTQ2ODQtOTRlOS0wNzU1YzMzY2RhM2EiLCJpYXQiOjE3NTMwNDE3MjcsImV4cCI6MTc1MzY0NjUyN30.YBgQN6s9SPw1O352ncD98Sn7yw_dINJ6TWa9JT6vOoo"
+          style="
+            width: 100%;
+            font-family: monospace;
+            font-size: 12px;
+            padding: 10px;
+          "
+          onclick="this.select(); document.execCommand('copy'); alert('Token copied to clipboard!');"
+        />
+        <p><small>👆 Click to copy • User: test@example.com</small></p>
+      </div>
+
+      <!-- Connection Section -->
+      <div class="section">
+        <h2>1. 🔐 Connect to WebSocket</h2>
+        <input
+          type="text"
+          id="token"
+          placeholder="Your JWT Token"
+          style="width: 400px"
+        />
+        <button onclick="connect()">Connect</button>
+        <button onclick="disconnect()">Disconnect</button>
+        <div id="connection-status">❌ Not connected</div>
+      </div>
+
+      <!-- Room Creation Section -->
+      <div
+        class="section"
+        style="background: #f8f9fa; border: 2px solid #007bff"
+      >
+        <h2>2. 🏠 Create & Join Rooms</h2>
+        <div style="margin-bottom: 15px">
+          <h3>Step A: Create New Room</h3>
+          <input
+            type="text"
+            id="newRoomName"
+            placeholder="Room Name (e.g., AI Test Room)"
+            style="width: 200px"
+            value="AI Test Room"
+          />
+          <select id="roomType" style="padding: 8px; margin: 5px">
+            <option value="group">Group Room</option>
+            <option value="personal">Personal Room</option>
+          </select>
+          <button
+            onclick="createRoom()"
+            style="
+              background: #28a745;
+              color: white;
+              padding: 8px 15px;
+              font-weight: bold;
+            "
+          >
+            ✨ Create Room
+          </button>
+          <div id="room-creation-status"></div>
+        </div>
+
+        <div
+          style="
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #dee2e6;
+          "
+        >
+          <h3>Step B: Join Room</h3>
+          <input
+            type="text"
+            id="roomId"
+            placeholder="Room ID (will be filled after creating room)"
+            style="width: 300px"
+          />
+          <button onclick="joinRoom()">Join Room</button>
+          <button onclick="leaveRoom()">Leave Room</button>
+          <button
+            onclick="generateRoomId()"
+            style="background: #ffc107; color: black; padding: 5px 10px"
+          >
+            🎲 Generate Random UUID
+          </button>
+          <div id="room-status">Not in any room</div>
+        </div>
+      </div>
+
+      <!-- Quick Start -->
+      <div class="section" style="background: #e8f5e8">
+        <h2>🚀 Quick Start (Updated)</h2>
+        <p><strong>Test AI Chat in 4 easy steps:</strong></p>
+        <ol>
+          <li>
+            <strong>Connect:</strong> Paste JWT token above and click "Connect"
+            ✅
+          </li>
+          <li>
+            <strong>Create Room:</strong> Click "✨ Create Room" to make a new
+            chat room 🏠
+          </li>
+          <li>
+            <strong>Join Room:</strong> Room ID will auto-fill, then click "Join
+            Room" 🚪
+          </li>
+          <li>
+            <strong>Chat:</strong> Type a message and watch the AI respond! 🤖
+          </li>
+        </ol>
+        <p>
+          <strong style="color: #0066cc">💡 Pro tip:</strong> Creating a room
+          first prevents database errors!
+        </p>
+      </div>
+
+      <!-- Chat Section -->
+      <div class="section">
+        <h2>3. 💬 Chat with AI</h2>
+        <div
+          id="chat-room-info"
+          style="
+            background: #fff3cd;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            display: none;
+          "
+        >
+          <strong>🏠 Current Room:</strong>
+          <span id="current-room-name">None</span><br />
+          <strong>🆔 Room ID:</strong> <span id="current-room-id">None</span>
+        </div>
+        <textarea
+          id="messageContent"
+          placeholder="Ask the AI anything! Try: 'Hello, how are you?' or 'Tell me a joke'"
+          rows="3"
+          style="width: 100%; max-width: 500px"
+        ></textarea
+        ><br />
+        <button
+          onclick="sendMessage()"
+          style="background: #007bff; color: white; padding: 10px 20px"
+        >
+          🚀 Send to AI
+        </button>
+        <button
+          onclick="sendTestMessage()"
+          style="background: #28a745; color: white; padding: 10px 20px"
+        >
+          ✨ Send Test Message
+        </button>
+      </div>
+
+      <!-- Messages Log -->
+      <div class="section">
+        <h2>4. 💬 Live Chat & AI Responses</h2>
+        <button onclick="clearLog()">Clear Chat</button>
+        <div
+          style="
+            background: #fff9c4;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+          "
+        >
+          <strong>💡 What to expect:</strong><br />
+          🔵 Your messages appear in <span style="color: blue">blue</span><br />
+          🟣 AI responses appear in <span style="color: purple">purple</span
+          ><br />
+          🤖 AI typically responds within 1-3 seconds
+        </div>
+        <div id="messages" class="log"></div>
+      </div>
+
+      <!-- REST API Testing -->
+      <div class="section">
+        <h2>5. REST API Testing</h2>
+        <p>Use these cURL commands to test REST endpoints:</p>
+        <textarea readonly rows="10" cols="80">
+# Register
+curl -X POST http://localhost:3000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"password123","username":"testuser"}'
+
+# Login
+curl -X POST http://localhost:3000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"password123"}'
+
+# Create Room (replace YOUR_TOKEN)
+curl -X POST http://localhost:3000/rooms \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Test Room","type":"group","members":["user1","user2"]}'
+
+# Get Rooms
+curl -X GET http://localhost:3000/rooms \
+  -H "Authorization: Bearer YOUR_TOKEN"
+            </textarea
+        >
+      </div>
+    </div>
+
+    <script>
+      let socket = null;
+      let currentRoomId = null;
+
+      function log(message, type = 'info') {
+        const messages = document.getElementById('messages');
+        const div = document.createElement('div');
+        div.className = `message ${type}`;
+        div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+        messages.appendChild(div);
+        messages.scrollTop = messages.scrollHeight;
+      }
+
+      function connect() {
+        const token = document.getElementById('token').value;
+        if (!token) {
+          alert('Please enter your JWT token');
+          return;
+        }
+
+        socket = io('http://localhost:8080/chats', {
+          auth: {
+            token: token,
+          },
+        });
+
+        socket.on('connect', () => {
+          document.getElementById('connection-status').innerHTML =
+            '<span class="connected">✅ Connected to WebSocket</span>';
+          log('🔗 Connected to WebSocket! Ready to chat with AI.', 'connected');
+        });
+
+        socket.on('disconnect', () => {
+          document.getElementById('connection-status').innerHTML =
+            '<span class="error">❌ Disconnected</span>';
+          log('Disconnected from WebSocket', 'error');
+        });
+
+        socket.on('connect_error', (error) => {
+          log(`❌ Connection error: ${error.message}`, 'error');
+        });
+
+        socket.on('connection-success', (data) => {
+          log(`✅ ${data.message}`, 'connected');
+        });
+
+        socket.on('connection-error', (data) => {
+          log(`❌ Server error: ${data.message}`, 'error');
+        });
+
+        socket.on('joined-room', (data) => {
+          currentRoomId = data.roomId;
+          document.getElementById('room-status').innerHTML =
+            `<span class="connected">✅ In room: ${data.roomId.substring(0, 8)}...</span>`;
+
+          // Show room info in chat section
+          document.getElementById('chat-room-info').style.display = 'block';
+          document.getElementById('current-room-name').textContent =
+            document.getElementById('newRoomName').value || 'Unknown';
+          document.getElementById('current-room-id').textContent = data.roomId;
+
+          log(
+            `🏠 Joined room: ${data.roomId} - Ready for AI chat!`,
+            'connected',
+          );
+        });
+
+        socket.on('left-room', (data) => {
+          log(`👋 Left room: ${data.roomId}`, 'info');
+          if (currentRoomId === data.roomId) {
+            currentRoomId = null;
+          }
+        });
+
+        socket.on('new-chat', (data) => {
+          // Remove "AI is thinking..." message when we get AI response
+          if (data.messageType === 'ai') {
+            removeWaitingMessage();
+            log(`🤖 AI Assistant: ${data.content}`, 'ai-message');
+          } else {
+            const sender = `👤 ${data.sender?.username || 'User'}`;
+            log(`${sender}: ${data.content}`, 'user-message');
+          }
+        });
+
+        socket.on('chat-error', (error) => {
+          log(`❌ Chat error: ${error.message}`, 'error');
+        });
+      }
+
+      function disconnect() {
+        if (socket) {
+          socket.disconnect();
+          socket = null;
+          document.getElementById('connection-status').innerHTML =
+            'Not connected';
+        }
+      }
+
+      function joinRoom() {
+        if (!socket) {
+          alert('Please connect first');
+          return;
+        }
+
+        const roomId = document.getElementById('roomId').value;
+        if (!roomId) {
+          alert('Please enter a room ID');
+          return;
+        }
+
+        socket.emit('join-room', { roomId: roomId });
+        log(`📨 Joining room: ${roomId}`);
+      }
+
+      function leaveRoom() {
+        if (!socket) {
+          alert('Please connect first');
+          return;
+        }
+
+        const roomId = document.getElementById('roomId').value || currentRoomId;
+        if (!roomId) {
+          alert('Please enter a room ID or join a room first');
+          return;
+        }
+
+        socket.emit('leave-room', { roomId: roomId });
+        log(`📨 Leaving room: ${roomId}`);
+      }
+
+      async function createRoom() {
+        const token = document.getElementById('token').value.trim();
+        const roomName = document.getElementById('newRoomName').value.trim();
+        const roomType = document.getElementById('roomType').value;
+
+        if (!token) {
+          alert('Please connect to WebSocket first (need JWT token)');
+          return;
+        }
+
+        if (!roomName) {
+          alert('Please enter a room name');
+          return;
+        }
+
+        log(`🚀 Creating ${roomType} room: ${roomName}`);
+        document.getElementById('room-creation-status').innerHTML =
+          '<div style="color: #007bff;">⏳ Creating room...</div>';
+
+        try {
+          const response = await fetch('http://localhost:3000/rooms', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              name: roomName,
+              type: roomType,
+              members: ['6f0e0956-6bfe-4684-94e9-0755c33cda3a'], // Your user ID
+            }),
+          });
+
+          const responseText = await response.text();
+          log(`📨 Room API Response: ${response.status}`);
+
+          if (response.ok) {
+            const room = JSON.parse(responseText);
+            const roomId = room.id || room.data?.id;
+
+            // Auto-fill the room ID for joining
+            document.getElementById('roomId').value = roomId;
+
+            // Show success message
+            document.getElementById('room-creation-status').innerHTML = `
+              <div class="room-created">
+                ✅ Room created successfully!<br>
+                <strong>Name:</strong> ${roomName}<br>
+                <strong>ID:</strong> ${roomId}<br>
+                <strong>Type:</strong> ${roomType}
+              </div>
+            `;
+
+            log(`✅ Room created! ID: ${roomId}`);
+            log(
+              `💡 Room ID auto-filled. Click "Join Room" to enter!`,
+              'connected',
+            );
+          } else {
+            const errorMsg = `Failed to create room: ${response.status} - ${responseText}`;
+            document.getElementById('room-creation-status').innerHTML =
+              `<div style="color: red;">❌ ${errorMsg}</div>`;
+            log(`❌ ${errorMsg}`, 'error');
+          }
+        } catch (error) {
+          const errorMsg = `Network error: ${error.message}`;
+          document.getElementById('room-creation-status').innerHTML =
+            `<div style="color: red;">❌ ${errorMsg}</div>`;
+          log(`❌ ${errorMsg}`, 'error');
+        }
+      }
+
+      function sendMessage() {
+        if (!socket) {
+          alert('Please connect first');
+          return;
+        }
+
+        const roomId = document.getElementById('roomId').value || currentRoomId;
+        const content = document.getElementById('messageContent').value;
+
+        if (!roomId) {
+          alert('Please create and join a room first');
+          return;
+        }
+
+        if (!content.trim()) {
+          alert('Please enter a message');
+          return;
+        }
+
+        socket.emit('create', {
+          room_id: roomId,
+          content: content,
+        });
+
+        log(`👤 You: ${content}`, 'user-message');
+        log(`🤖 AI is thinking...`, 'waiting-ai');
+        document.getElementById('messageContent').value = '';
+      }
+
+      function sendTestMessage() {
+        const testMessages = [
+          'Hello AI! How are you doing today?',
+          'Tell me a joke',
+          "What's the weather like?",
+          'Can you help me with coding?',
+          'What do you think about artificial intelligence?',
+        ];
+
+        const randomMessage =
+          testMessages[Math.floor(Math.random() * testMessages.length)];
+        document.getElementById('messageContent').value = randomMessage;
+
+        // Auto-send after a short delay to show the message was set
+        setTimeout(sendMessage, 500);
+      }
+
+      function clearLog() {
+        document.getElementById('messages').innerHTML = '';
+      }
+
+      function generateRoomId() {
+        // Generate a simple UUID v4
+        const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(
+          /[xy]/g,
+          function (c) {
+            const r = (Math.random() * 16) | 0;
+            const v = c === 'x' ? r : (r & 0x3) | 0x8;
+            return v.toString(16);
+          },
+        );
+
+        document.getElementById('roomId').value = uuid;
+        log(`🎲 Generated new room UUID: ${uuid}`, 'info');
+      }
+
+      function removeWaitingMessage() {
+        const messages = document.getElementById('messages');
+        const waitingMessages = messages.querySelectorAll('.waiting-ai');
+        waitingMessages.forEach((msg) => msg.remove());
+      }
+
+      // Handle Enter key in message textarea
+      document
+        .getElementById('messageContent')
+        .addEventListener('keypress', function (e) {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+          }
+        });
+    </script>
+  </body>
+</html>

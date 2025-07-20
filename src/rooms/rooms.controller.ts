@@ -26,14 +26,23 @@ export class RoomsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   create(@Request() req, @Body() createRoomDto: CreateRoomDto) {
-    return this.roomsService.create(req.user._id.toString(), createRoomDto);
+    console.log('req.user:', req.user); // Debug log
+    const userId = req.user?.sub || req.user?.id || req.user?._id;
+    if (!userId) {
+      throw new Error('User ID not found in JWT payload');
+    }
+    return this.roomsService.create(userId.toString(), createRoomDto);
   }
 
   @Get()
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   getByRequest(@Request() req) {
-    return this.roomsService.getByRequest(req.user._id.toString());
+    const userId = req.user?.sub || req.user?.id || req.user?._id;
+    if (!userId) {
+      throw new Error('User ID not found in JWT payload');
+    }
+    return this.roomsService.getByRequest(userId.toString());
   }
 
   @Get(':id/chats')

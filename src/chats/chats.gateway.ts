@@ -4,36 +4,135 @@ import {
   MessageBody,
   WebSocketServer,
   ConnectedSocket,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { ChatsService } from './chats.service';
 import { CreateChatDto } from './dto/create-chat.dto';
 import { Server, Socket } from 'socket.io';
-import { UseGuards } from '@nestjs/common';
+import { UseGuards, Logger } from '@nestjs/common';
 import { WsJwtAuthGuard } from 'src/config/guard/ws-jwt-auth.guard';
-import { wsAuthMiddleware } from 'src/config/middleware/ws-auth.middleware';
 
-@WebSocketGateway(800, {
+@WebSocketGateway(8080, {
   namespace: '/chats',
+  cors: {
+    origin: '*',
+    credentials: true,
+  },
+  transports: ['websocket', 'polling'],
+  allowEIO3: true,
 })
-@UseGuards(WsJwtAuthGuard)
-export class ChatsGateway {
-  constructor(private readonly chatsService: ChatsService) {}
+export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
+  private readonly logger = new Logger(ChatsGateway.name);
+
+  constructor(private readonly chatsService: ChatsService) {
+    // Set the gateway reference in the service to enable broadcasting
+    this.chatsService.setGateway(this);
+  }
 
   @WebSocketServer()
   private server: Server;
 
-  @SubscribeMessage('create')
-  async create(
-    @ConnectedSocket() client,
-    @MessageBody() createChatDto: CreateChatDto,
-  ) {
-    const senderId = client.handshake.user.id;
-    const chat = await this.chatsService.create(senderId, createChatDto);
-
-    this.server.emit('new-chat', chat);
+  handleConnection(client: Socket) {
+    try {
+      this.logger.log(
+        `Client connected: ${client.id} from ${client.handshake.address}`,
+      );
+      // No authentication during connection - it happens per-message
+      client.emit('connection-success', {
+        message: 'Connected to chat server',
+        clientId: client.id,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      this.logger.error(`Connection error: ${error.message}`, error.stack);
+      client.emit('connection-error', {
+        message: 'Failed to connect',
+        error: error.message,
+      });
+    }
   }
 
-  afterInit(client: Socket) {
-    client.use((socket, next) => wsAuthMiddleware(socket, next));
+  handleDisconnect(client: Socket) {
+    this.logger.log(`Client disconnected: ${client.id}`);
+  }
+
+  @SubscribeMessage('join-room')
+  @UseGuards(WsJwtAuthGuard)
+  async joinRoom(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string },
+  ) {
+    client.join(`room:${data.roomId}`);
+    this.logger.log(`Client ${client.id} joined room: room:${data.roomId}`);
+    client.emit('joined-room', { roomId: data.roomId });
+  }
+
+  @SubscribeMessage('leave-room')
+  @UseGuards(WsJwtAuthGuard)
+  async leaveRoom(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string },
+  ) {
+    client.leave(`room:${data.roomId}`);
+    this.logger.log(`Client ${client.id} left room: room:${data.roomId}`);
+    client.emit('left-room', { roomId: data.roomId });
+  }
+
+  @SubscribeMessage('create')
+  @UseGuards(WsJwtAuthGuard)
+  async create(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() createChatDto: CreateChatDto,
+  ) {
+    try {
+      const senderId = (client.handshake as any).user?.sub;
+      if (!senderId) {
+        client.emit('chat-error', {
+          message: 'Authentication required',
+          error: 'User not found in handshake',
+        });
+        return;
+      }
+
+      console.log('_____senderId', createChatDto);
+
+      const chat = await this.chatsService.create(senderId, createChatDto);
+
+      // Emit the user message to all clients in the room
+      this.server.to(`room:${createChatDto.room_id}`).emit('new-chat', {
+        ...chat,
+        messageType: 'user',
+      });
+
+      this.logger.log(
+        `Message sent to room ${createChatDto.room_id} by user ${senderId}`,
+      );
+
+      // Note: AI response will be handled asynchronously in the service
+      // and broadcast separately when ready
+    } catch (error) {
+      this.logger.error(`Error creating chat: ${error.message}`);
+      client.emit('chat-error', {
+        message: 'Failed to send message',
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * Broadcast AI response to all users in a room
+   * This method can be called from the service
+   */
+  broadcastAiResponse(roomId: string, aiResponse: any) {
+    this.server.to(`room:${roomId}`).emit('new-chat', {
+      ...aiResponse,
+      messageType: 'ai',
+    });
+    this.logger.log(`AI response broadcast to room: ${roomId}`);
+  }
+
+  afterInit() {
+    this.logger.log('WebSocket server initialized');
   }
 }
