@@ -1,46 +1,66 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { RegisterAuthDto } from '../auth/dto/register-auth.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { InjectModel } from '@nestjs/mongoose';
-import { User } from './schemas/user.schemas';
-import { Model } from 'mongoose';
+import { InjectRepository } from '@nestjs/typeorm';
+import { User } from './entities/user.entity';
+import { Repository } from 'typeorm';
 import { PasswordHashHelper } from 'src/helper/hash/password-hash.helper';
 
 @Injectable()
 export class UsersService {
-
   constructor(
-    @InjectModel(User.name) private userModel: Model<User>,
-  ) { }
+    @InjectRepository(User) private userRepository: Repository<User>,
+  ) {}
 
   async create(dto: RegisterAuthDto) {
     const passwordGenerator = await PasswordHashHelper.hash(dto.password);
-    dto.password = passwordGenerator.hash;
 
-    const createdUser = new this.userModel({
+    const userData = {
       ...dto,
+      password: passwordGenerator.hash,
       password_key: passwordGenerator.passKey,
-    });
+    };
 
     try {
-      return await createdUser.save();
+      return await this.userRepository.save(userData);
     } catch (error) {
       throw new BadRequestException(error.message);
     }
   }
 
   async validateUser(email: string, password: string) {
-    const user = await this.userModel
-      .findOne({ email })
-      .select('+password')
-      .select('+password_key')
-      .exec();
+    const user = await this.userRepository.findOne({
+      where: { email },
+      select: [
+        'id',
+        'name',
+        'username',
+        'email',
+        'password',
+        'password_key',
+        'about',
+        'birthday',
+        'height',
+        'weight',
+        'createdAt',
+        'updatedAt',
+      ],
+      relations: ['interests'],
+    });
 
     if (!user) {
       throw new NotFoundException('Could not find user.');
     }
 
-    const isPasswordCorrect = await PasswordHashHelper.comparePassword(password, user.password_key, user.password);
+    const isPasswordCorrect = await PasswordHashHelper.comparePassword(
+      password,
+      user.password_key,
+      user.password,
+    );
 
     if (!isPasswordCorrect) {
       throw new NotFoundException('Could not find user.');
@@ -50,7 +70,10 @@ export class UsersService {
   }
 
   async findOne(id: string) {
-    const user = await this.userModel.findById(id).exec();
+    const user = await this.userRepository.findOne({
+      where: { id },
+      relations: ['interests'],
+    });
 
     if (!user) {
       throw new NotFoundException('Could not find user.');
@@ -60,11 +83,21 @@ export class UsersService {
   }
 
   async update(id: string, updateUserDto: UpdateUserDto) {
-    const updatedUser = await this.userModel.findByIdAndUpdate(id, updateUserDto, { new: true }).exec();
+    const result = await this.userRepository.update(id, {
+      ...updateUserDto,
+      interests: updateUserDto.interests.map((interest) => ({
+        name: interest,
+      })),
+    });
 
-    if (!updatedUser) {
+    if (result.affected === 0) {
       throw new NotFoundException('Could not find user.');
     }
+
+    const updatedUser = await this.userRepository.findOne({
+      where: { id },
+      relations: ['interests'],
+    });
 
     return {
       message: 'User updated successfully',

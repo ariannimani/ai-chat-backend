@@ -1,4 +1,4 @@
 export enum RoomType {
-    PERSONAL = 'personal',
-    GROUP = 'group',
+  PERSONAL = 'personal',
+  GROUP = 'group',
 }

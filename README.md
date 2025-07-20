@@ -24,22 +24,26 @@
 
 ## Overview
 
-NestJS-MongoDB-Chat-App is a robust and scalable real-time chat application designed to provide a seamless communication experience. Leveraging the power of [NestJS](https://nestjs.com/) for server-side logic, [MongoDB](https://www.mongodb.com/) with [Mongoose](https://mongoosejs.com/) for efficient data storage and ORM, and WebSockets for instantaneous bi-directional communication, this application offers a feature-rich environment for users to engage in peer-to-peer conversations and participate in room-based discussions.
+NestJS-Chat-App is a robust and scalable real-time chat application designed to provide a seamless communication experience. Leveraging the power of [NestJS](https://nestjs.com/) for server-side logic, [PostgreSQL](https://www.postgresql.org/) with [TypeORM](https://typeorm.io/) for efficient data storage and ORM, [Supabase](https://supabase.com/) for real-time features and storage, and WebSockets for instantaneous bi-directional communication, this application offers a feature-rich environment for users to engage in peer-to-peer conversations and participate in room-based discussions.
 
 ## Features
 
-- **User Authentication:** Secure user authentication using [Passport](http://www.passportjs.org/) and [JWT](https://jwt.io/), ensuring a safe and personalized experience for each user.
+- **User Authentication:** Secure user authentication using [Passport](http://www.passportjs.org/) and [JWT](https://jwt.io/), with optional [Supabase Auth](https://supabase.com/auth) integration.
 - **Peer-to-Peer Messaging:** Enjoy direct and private conversations with other users in real-time.
 - **Room-Based Conversations:** Join or create chat rooms to engage in group discussions on various topics.
+- **Real-time Features:** Enhanced real-time communication using Supabase channels and WebSockets for instant message delivery.
+- **File Uploads:** Share files and media in chat rooms using Supabase Storage with automatic CDN delivery.
 - **WebSockets Integration:** Harness the power of WebSockets for low-latency communication, providing a responsive and dynamic chat experience.
-- **Mongoose ORM:** Benefit from the elegant [Mongoose](https://mongoosejs.com/) ORM for MongoDB, simplifying data modeling and interaction with the database.
+- **TypeORM:** Benefit from the powerful [TypeORM](https://typeorm.io/) for PostgreSQL, providing type-safe database operations and migrations.
+- **Supabase Integration:** Leverage [Supabase](https://supabase.com/) for real-time subscriptions, file storage, and optional authentication.
 - **NestJS Command Seeding:** Utilize [NestJS Command](https://docs.nestjs.com/cli/commands) for convenient seeding of initial data.
 
 ## Technologies Used
 
 - [NestJS](https://nestjs.com/): A progressive Node.js framework for building efficient and scalable server-side applications.
-- [MongoDB](https://www.mongodb.com/): A NoSQL database for flexible and scalable data storage.
-- [Mongoose](https://mongoosejs.com/): An elegant MongoDB object modeling tool for Node.js.
+- [PostgreSQL](https://www.postgresql.org/): A powerful, open-source relational database system with advanced features.
+- [Supabase](https://supabase.com/): Open-source Firebase alternative providing PostgreSQL database, real-time subscriptions, storage, and authentication.
+- [TypeORM](https://typeorm.io/): TypeScript ORM for Node.js with support for TypeScript and JavaScript.
 - [WebSockets](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API): Facilitates real-time, bidirectional communication between clients and servers.
 - [Socket.IO](https://socket.io/): A library for real-time web applications, enabling real-time, bi-directional communication.
 - [Passport](http://www.passportjs.org/): Simple, unobtrusive authentication for Node.js.

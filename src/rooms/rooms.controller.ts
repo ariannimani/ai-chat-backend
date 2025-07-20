@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Query, Request, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { RoomsService } from './rooms.service';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { ApiBearerAuth, ApiParam } from '@nestjs/swagger';
@@ -8,11 +17,10 @@ import { ChatsService } from 'src/chats/chats.service';
 
 @Controller('rooms')
 export class RoomsController {
-
   constructor(
     private readonly roomsService: RoomsService,
     private readonly chatsService: ChatsService,
-  ) { }
+  ) {}
 
   @Post()
   @UseGuards(JwtAuthGuard)

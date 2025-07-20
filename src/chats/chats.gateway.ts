@@ -1,4 +1,10 @@
-import { WebSocketGateway, SubscribeMessage, MessageBody, WebSocketServer, ConnectedSocket } from '@nestjs/websockets';
+import {
+  WebSocketGateway,
+  SubscribeMessage,
+  MessageBody,
+  WebSocketServer,
+  ConnectedSocket,
+} from '@nestjs/websockets';
 import { ChatsService } from './chats.service';
 import { CreateChatDto } from './dto/create-chat.dto';
 import { Server, Socket } from 'socket.io';
@@ -11,8 +17,7 @@ import { wsAuthMiddleware } from 'src/config/middleware/ws-auth.middleware';
 })
 @UseGuards(WsJwtAuthGuard)
 export class ChatsGateway {
-
-  constructor(private readonly chatsService: ChatsService) { }
+  constructor(private readonly chatsService: ChatsService) {}
 
   @WebSocketServer()
   private server: Server;
@@ -20,9 +25,9 @@ export class ChatsGateway {
   @SubscribeMessage('create')
   async create(
     @ConnectedSocket() client,
-    @MessageBody() createChatDto: CreateChatDto
+    @MessageBody() createChatDto: CreateChatDto,
   ) {
-    const senderId = client.handshake.user._id.toString();
+    const senderId = client.handshake.user.id;
     const chat = await this.chatsService.create(senderId, createChatDto);
 
     this.server.emit('new-chat', chat);

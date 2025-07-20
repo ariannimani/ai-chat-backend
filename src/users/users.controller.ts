@@ -6,13 +6,12 @@ import { ApiBearerAuth } from '@nestjs/swagger';
 
 @Controller('users')
 export class UsersController {
-
-  constructor(private readonly usersService: UsersService) { }
+  constructor(private readonly usersService: UsersService) {}
 
   @Patch('profile')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   update(@Request() req, @Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.update(req.user._id.toString(), updateUserDto);
+    return this.usersService.update(req.user.id, updateUserDto);
   }
 }
