@@ -42,14 +42,9 @@ export class UsersService {
         'email',
         'password',
         'password_key',
-        'about',
-        'birthday',
-        'height',
-        'weight',
         'createdAt',
         'updatedAt',
       ],
-      relations: ['interests'],
     });
 
     if (!user) {
@@ -72,7 +67,6 @@ export class UsersService {
   async findOne(id: string) {
     const user = await this.userRepository.findOne({
       where: { id },
-      relations: ['interests'],
     });
 
     if (!user) {
@@ -83,12 +77,7 @@ export class UsersService {
   }
 
   async update(id: string, updateUserDto: UpdateUserDto) {
-    const result = await this.userRepository.update(id, {
-      ...updateUserDto,
-      interests: updateUserDto.interests.map((interest) => ({
-        name: interest,
-      })),
-    });
+    const result = await this.userRepository.update(id, updateUserDto);
 
     if (result.affected === 0) {
       throw new NotFoundException('Could not find user.');
@@ -96,7 +85,6 @@ export class UsersService {
 
     const updatedUser = await this.userRepository.findOne({
       where: { id },
-      relations: ['interests'],
     });
 
     return {

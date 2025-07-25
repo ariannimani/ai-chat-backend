@@ -20,10 +20,6 @@ CREATE TABLE users (
     email VARCHAR(255) UNIQUE NOT NULL,
     password TEXT NOT NULL,
     password_key TEXT NOT NULL,
-    about TEXT,
-    birthday DATE,
-    height FLOAT,
-    weight FLOAT,
     "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -34,20 +30,7 @@ CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_created_at ON users("createdAt");
 
 -- ==================================================
--- 2. INTERESTS TABLE
--- ==================================================
-CREATE TABLE interests (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) UNIQUE NOT NULL,
-    "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Indexes for interests table
-CREATE INDEX idx_interests_name ON interests(name);
-
--- ==================================================
--- 3. ROOMS TABLE
+-- 2. ROOMS TABLE
 -- ==================================================
 CREATE TABLE rooms (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -62,7 +45,7 @@ CREATE INDEX idx_rooms_type ON rooms(type);
 CREATE INDEX idx_rooms_created_at ON rooms("createdAt");
 
 -- ==================================================
--- 4. CHATS TABLE
+-- 3. CHATS TABLE
 -- ==================================================
 CREATE TABLE chats (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -86,28 +69,7 @@ CREATE INDEX idx_chats_room_created ON chats(room_id, "createdAt");
 CREATE INDEX idx_chats_ai_response ON chats("isAiResponse");
 
 -- ==================================================
--- 5. USER_INTERESTS JUNCTION TABLE (Many-to-Many)
--- ==================================================
-CREATE TABLE user_interests (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL,
-    interest_id UUID NOT NULL,
-    "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Foreign key constraints
-    CONSTRAINT fk_user_interests_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT fk_user_interests_interest FOREIGN KEY (interest_id) REFERENCES interests(id) ON DELETE CASCADE,
-    
-    -- Unique constraint to prevent duplicate relationships
-    CONSTRAINT uk_user_interests UNIQUE (user_id, interest_id)
-);
-
--- Indexes for user_interests table
-CREATE INDEX idx_user_interests_user_id ON user_interests(user_id);
-CREATE INDEX idx_user_interests_interest_id ON user_interests(interest_id);
-
--- ==================================================
--- 6. ROOM_MEMBERS JUNCTION TABLE (Many-to-Many)
+-- 4. ROOM_MEMBERS JUNCTION TABLE (Many-to-Many)
 -- ==================================================
 CREATE TABLE room_members (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -128,7 +90,7 @@ CREATE INDEX idx_room_members_room_id ON room_members(room_id);
 CREATE INDEX idx_room_members_user_id ON room_members(user_id);
 
 -- ==================================================
--- 7. UPDATE TRIGGERS FOR TIMESTAMPS
+-- 5. UPDATE TRIGGERS FOR TIMESTAMPS
 -- ==================================================
 
 -- Function to update the updatedAt column
@@ -145,9 +107,7 @@ CREATE TRIGGER update_users_updated_at
     BEFORE UPDATE ON users 
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_interests_updated_at 
-    BEFORE UPDATE ON interests 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 
 CREATE TRIGGER update_rooms_updated_at 
     BEFORE UPDATE ON rooms 
@@ -163,10 +123,8 @@ CREATE TRIGGER update_chats_updated_at
 
 -- Enable RLS on all tables
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE interests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rooms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chats ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_interests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE room_members ENABLE ROW LEVEL SECURITY;
 
 -- Example RLS policies (you can customize these based on your needs)
@@ -211,13 +169,7 @@ CREATE POLICY "Users can send messages to their rooms" ON chats
         AND sender_id::text = auth.uid()::text
     );
 
--- Allow reading interests for all authenticated users
-CREATE POLICY "Authenticated users can view interests" ON interests
-    FOR SELECT TO authenticated USING (true);
 
--- Allow reading user_interests for all authenticated users
-CREATE POLICY "Authenticated users can view user interests" ON user_interests
-    FOR SELECT TO authenticated USING (true);
 
 -- Allow reading room_members for room participants
 CREATE POLICY "Room members can view membership" ON room_members
@@ -233,47 +185,22 @@ CREATE POLICY "Room members can view membership" ON room_members
 -- 9. SAMPLE DATA (Optional - for testing)
 -- ==================================================
 
--- Insert some sample interests
-INSERT INTO interests (name) VALUES 
-    ('Technology'),
-    ('Sports'),
-    ('Music'),
-    ('Travel'),
-    ('Cooking'),
-    ('Reading'),
-    ('Gaming'),
-    ('Art'),
-    ('Movies'),
-    ('Fitness')
-ON CONFLICT (name) DO NOTHING;
+
 
 -- ==================================================
 -- 10. USEFUL VIEWS (Optional)
 -- ==================================================
 
--- View for user profiles with interests
+-- View for user profiles
 CREATE VIEW user_profiles AS
 SELECT 
     u.id,
     u.name,
     u.username,
     u.email,
-    u.about,
-    u.birthday,
-    u.height,
-    u.weight,
     u."createdAt",
-    u."updatedAt",
-    COALESCE(
-        json_agg(
-            json_build_object('id', i.id, 'name', i.name)
-        ) FILTER (WHERE i.id IS NOT NULL),
-        '[]'::json
-    ) AS interests
-FROM users u
-LEFT JOIN user_interests ui ON u.id = ui.user_id
-LEFT JOIN interests i ON ui.interest_id = i.id
-GROUP BY u.id, u.name, u.username, u.email, u.about, u.birthday, u.height, u.weight, u."createdAt", u."updatedAt";
+    u."updatedAt"
+FROM users u;
 
 -- View for room details with member count
 CREATE VIEW room_details AS

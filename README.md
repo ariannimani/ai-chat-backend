@@ -55,8 +55,7 @@ This is an advanced, AI-powered real-time chat application that combines the rob
 - **WebSocket Auth**: Authenticated real-time connections
 
 ### 👥 **User Management**
-- **Rich Profiles**: Users with interests, personal info, and relationships
-- **Interest Matching**: Many-to-many user-interest relationships
+- **User Management**: Clean user profiles with essential authentication data
 - **Room Membership**: Flexible room member management
 - **User Validation**: Comprehensive input validation and sanitization
 
@@ -160,14 +159,7 @@ Run the provided SQL migration in your Supabase dashboard:
 # Copy its contents to Supabase SQL Editor and execute
 ```
 
-### 4. Seed Initial Data
-
-```bash
-# Seed interests data
-npm run seed:app
-```
-
-### 5. Start the Application
+### 4. Start the Application
 
 ```bash
 # Development mode
@@ -217,11 +209,10 @@ POST /chats/:roomId/upload    # Upload file to room
 GET  /chats/:roomId/files     # List room files
 ```
 
-### **User & Interest Endpoints**
+### **User Endpoints**
 ```http
 GET  /users/me         # Get user profile
 PUT  /users/me         # Update user profile
-GET  /interests        # List all interests
 ```
 
 ### **WebSocket Events**
@@ -249,7 +240,7 @@ socket.on('new-chat', (message) => {
 
 ### **Database Schema**
 ```
-Users ←→ User_Interests ←→ Interests
+
   ↓
 Room_Members ←→ Rooms
   ↓
@@ -295,7 +286,7 @@ src/
 ├── auth/              # Authentication (JWT + Supabase)
 ├── chats/             # Chat system with WebSocket gateway
 ├── config/            # Configuration, guards, middleware
-├── interests/         # User interests management
+
 ├── rooms/             # Chat room management
 ├── users/             # User management and profiles
 └── main.ts           # Application entry point

@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { UsersModule } from './users/users.module';
-import { InterestsModule } from './interests/interests.module';
 import { CommandModule } from 'nestjs-command';
 import { AuthModule } from './auth/auth.module';
 import { RoomsModule } from './rooms/rooms.module';
@@ -10,7 +9,6 @@ import { ChatsModule } from './chats/chats.module';
 import { JwtModule } from '@nestjs/jwt';
 import { SupabaseModule } from './config/supabase/supabase.module';
 import { User } from './users/entities/user.entity';
-import { Interest } from './interests/entities/interest.entity';
 import { Room } from './rooms/entities/room.entity';
 import { Chat } from './chats/entities/chat.entity';
 
@@ -48,7 +46,7 @@ console.log('=====================================');
       username: process.env.SUPABASE_DB_USERNAME,
       password: process.env.SUPABASE_DB_PASSWORD,
       database: process.env.SUPABASE_DB_NAME,
-      entities: [User, Interest, Room, Chat],
+      entities: [User, Room, Chat],
       synchronize: process.env.NODE_ENV !== 'production',
       ssl: {
         rejectUnauthorized: false,
@@ -61,7 +59,6 @@ console.log('=====================================');
     SupabaseModule,
     CommandModule,
     UsersModule,
-    InterestsModule,
     AuthModule,
     RoomsModule,
     ChatsModule,
