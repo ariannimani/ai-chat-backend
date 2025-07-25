@@ -33,7 +33,10 @@ This is an advanced, AI-powered real-time chat application that combines the rob
 
 ### 🤖 **AI Integration**
 - **Automatic AI Responses**: Every user message triggers an intelligent AI response using Groq's fast LLM
-- **Per-Room Memory**: Each chat room maintains its own conversation context using LangChain BufferMemory
+- **Dual-Layer Memory System**: Separate memory contexts for individual users and shared room collaboration
+  - **User Memory**: Tracks each user's personal conversation history ("What was my last question?")
+  - **Room Memory**: Maintains shared collaborative context for group storytelling and discussions
+  - **Smart Context Switching**: Automatically detects personal vs collaborative queries and prioritizes appropriate memory
 - **Context Awareness**: AI knows user identity, room context, and conversation history
 - **LangSmith Tracing**: Full observability and debugging of AI interactions
 - **Model**: Powered by `llama3-70b-8192` for fast, intelligent responses
