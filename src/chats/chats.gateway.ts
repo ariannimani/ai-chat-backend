@@ -100,9 +100,10 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const chat = await this.chatsService.create(senderId, createChatDto);
 
       // Emit the user message to all clients in the room
+      // Keep the original messageType from the DTO ('chat' or 'ai')
       this.server.to(`room:${createChatDto.room_id}`).emit('new-chat', {
         ...chat,
-        messageType: 'user',
+        messageType: createChatDto.messageType || 'chat',
       });
 
       this.logger.log(
@@ -127,7 +128,7 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   broadcastAiResponse(roomId: string, aiResponse: any) {
     this.server.to(`room:${roomId}`).emit('new-chat', {
       ...aiResponse,
-      messageType: 'ai',
+      // Don't override messageType - use the isAiResponse field to identify AI responses
     });
     this.logger.log(`AI response broadcast to room: ${roomId}`);
   }

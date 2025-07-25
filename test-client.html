@@ -224,16 +224,16 @@
         ></textarea
         ><br />
         <button
-          onclick="sendMessage()"
+          onclick="sendAiMessage()"
           style="background: #007bff; color: white; padding: 10px 20px"
         >
           🚀 Send to AI
         </button>
         <button
-          onclick="sendTestMessage()"
+          onclick="sendChatMessage()"
           style="background: #28a745; color: white; padding: 10px 20px"
         >
-          ✨ Send Test Message
+          💬 Send Chat Message
         </button>
       </div>
 
@@ -287,18 +287,44 @@ curl -X GET http://localhost:3000/rooms \
       </div>
     </div>
 
-    <script>
-      let socket = null;
-      let currentRoomId = null;
+         <script>
+       let socket = null;
+       let currentRoomId = null;
+       let messageQueue = []; // Queue to maintain proper message order
+       let lastAiQuestionTime = null; // Track when AI question was sent
 
-      function log(message, type = 'info') {
-        const messages = document.getElementById('messages');
-        const div = document.createElement('div');
-        div.className = `message ${type}`;
-        div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
-        messages.appendChild(div);
-        messages.scrollTop = messages.scrollHeight;
-      }
+       function log(message, type = 'info', timestamp = null) {
+         const messages = document.getElementById('messages');
+         const div = document.createElement('div');
+         div.className = `message ${type}`;
+         const timeStr = timestamp ? new Date(timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+         div.textContent = `[${timeStr}] ${message}`;
+         
+         // Add timestamp data for sorting
+         div.dataset.timestamp = timestamp || new Date().getTime();
+         div.dataset.messageType = type;
+         
+         messages.appendChild(div);
+         
+         // Sort messages by timestamp to ensure proper order
+         sortMessagesByTimestamp();
+         messages.scrollTop = messages.scrollHeight;
+       }
+
+       function sortMessagesByTimestamp() {
+         const messages = document.getElementById('messages');
+         const messageElements = Array.from(messages.children);
+         
+         messageElements.sort((a, b) => {
+           const timeA = parseInt(a.dataset.timestamp) || 0;
+           const timeB = parseInt(b.dataset.timestamp) || 0;
+           return timeA - timeB;
+         });
+         
+         // Clear and re-append in correct order
+         messages.innerHTML = '';
+         messageElements.forEach(element => messages.appendChild(element));
+       }
 
       function connect() {
         const token = document.getElementById('token').value;
@@ -362,13 +388,24 @@ curl -X GET http://localhost:3000/rooms \
         });
 
         socket.on('new-chat', (data) => {
-          // Remove "AI is thinking..." message when we get AI response
-          if (data.messageType === 'ai') {
+          // Handle different message types
+          const timestamp = data.createdAt ? new Date(data.createdAt).getTime() : new Date().getTime();
+          
+          // Check if this is an actual AI response (from the AI service)
+          if (data.isAiResponse === true) {
             removeWaitingMessage();
-            log(`🤖 AI Assistant: ${data.content}`, 'ai-message');
+            log(`🤖 AI Assistant: ${data.content}`, 'ai-message', timestamp);
           } else {
+            // This is a user message (either regular chat or question to AI)
             const sender = `👤 ${data.sender?.username || 'User'}`;
-            log(`${sender}: ${data.content}`, 'user-message');
+            if (data.messageType === 'ai') {
+              // This is the user's question to AI
+              log(`${sender} (to AI): ${data.content}`, 'user-message', timestamp);
+              lastAiQuestionTime = timestamp; // Track AI question time
+            } else {
+              // Regular chat message
+              log(`${sender}: ${data.content}`, 'user-message', timestamp);
+            }
           }
         });
 
@@ -490,51 +527,68 @@ curl -X GET http://localhost:3000/rooms \
         }
       }
 
-      function sendMessage() {
-        if (!socket) {
-          alert('Please connect first');
-          return;
-        }
+             // Send a message to AI (triggers AI response)
+       function sendAiMessage() {
+         if (!socket) {
+           alert('Please connect first');
+           return;
+         }
 
-        const roomId = document.getElementById('roomId').value || currentRoomId;
-        const content = document.getElementById('messageContent').value;
+         const roomId = document.getElementById('roomId').value || currentRoomId;
+         const content = document.getElementById('messageContent').value;
 
-        if (!roomId) {
-          alert('Please create and join a room first');
-          return;
-        }
+         if (!roomId) {
+           alert('Please create and join a room first');
+           return;
+         }
 
-        if (!content.trim()) {
-          alert('Please enter a message');
-          return;
-        }
+         if (!content.trim()) {
+           alert('Please enter a message');
+           return;
+         }
 
-        socket.emit('create', {
-          room_id: roomId,
-          content: content,
-        });
+         socket.emit('create', {
+           room_id: roomId,
+           content: content,
+           messageType: 'ai' // This will trigger AI response
+         });
 
-        log(`👤 You: ${content}`, 'user-message');
-        log(`🤖 AI is thinking...`, 'waiting-ai');
-        document.getElementById('messageContent').value = '';
-      }
+                   // Don't log locally - wait for server response to show to everyone
+          addWaitingMessage();
+          document.getElementById('messageContent').value = '';
+       }
 
-      function sendTestMessage() {
-        const testMessages = [
-          'Hello AI! How are you doing today?',
-          'Tell me a joke',
-          "What's the weather like?",
-          'Can you help me with coding?',
-          'What do you think about artificial intelligence?',
-        ];
+             // Send a regular chat message (no AI response)
+       function sendChatMessage() {
+         if (!socket) {
+           alert('Please connect first');
+           return;
+         }
 
-        const randomMessage =
-          testMessages[Math.floor(Math.random() * testMessages.length)];
-        document.getElementById('messageContent').value = randomMessage;
+         const roomId = document.getElementById('roomId').value || currentRoomId;
+         const content = document.getElementById('messageContent').value;
 
-        // Auto-send after a short delay to show the message was set
-        setTimeout(sendMessage, 500);
-      }
+         if (!roomId) {
+           alert('Please create and join a room first');
+           return;
+         }
+
+         if (!content.trim()) {
+           alert('Please enter a message');
+           return;
+         }
+
+         socket.emit('create', {
+           room_id: roomId,
+           content: content,
+           messageType: 'chat' // This will NOT trigger AI response
+         });
+
+         // Don't log locally - wait for server response to show to everyone
+         document.getElementById('messageContent').value = '';
+       }
+
+
 
       function clearLog() {
         document.getElementById('messages').innerHTML = '';
@@ -555,21 +609,29 @@ curl -X GET http://localhost:3000/rooms \
         log(`🎲 Generated new room UUID: ${uuid}`, 'info');
       }
 
-      function removeWaitingMessage() {
-        const messages = document.getElementById('messages');
-        const waitingMessages = messages.querySelectorAll('.waiting-ai');
-        waitingMessages.forEach((msg) => msg.remove());
-      }
+              function removeWaitingMessage() {
+          const messages = document.getElementById('messages');
+          const waitingMessages = messages.querySelectorAll('.waiting-ai');
+          waitingMessages.forEach((msg) => msg.remove());
+        }
 
-      // Handle Enter key in message textarea
+        function addWaitingMessage() {
+          // Remove any existing waiting messages first
+          removeWaitingMessage();
+          // Add new waiting message with current timestamp
+          log(`🤖 AI is thinking...`, 'waiting-ai', new Date().getTime());
+        }
+
+      // Handle Enter key in message textarea (defaults to AI message)
       document
         .getElementById('messageContent')
         .addEventListener('keypress', function (e) {
           if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            sendMessage();
+            sendAiMessage();
           }
         });
     </script>
   </body>
 </html>
+

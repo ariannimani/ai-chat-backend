@@ -26,11 +26,15 @@ export class InterestsService {
   }
 
   async removeAll() {
-    const removedInterests = await this.interestRepository.delete({});
+    const result = await this.interestRepository
+      .createQueryBuilder()
+      .delete()
+      .from(Interest)
+      .execute();
 
     return {
       message: 'Interests removed successfully',
-      data: removedInterests,
+      data: { affected: result.affected },
     };
   }
 }

@@ -1,4 +1,4 @@
-import { IsNotEmpty } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsIn } from 'class-validator';
 
 export class CreateChatDto {
   @IsNotEmpty()
@@ -6,4 +6,8 @@ export class CreateChatDto {
 
   @IsNotEmpty()
   readonly content: string;
+
+  @IsOptional()
+  @IsIn(['chat', 'ai'])
+  readonly messageType?: 'chat' | 'ai' = 'chat'; // Default to regular chat
 }

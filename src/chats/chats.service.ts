@@ -56,11 +56,14 @@ export class ChatsService {
       );
     }
 
-    // Generate and save AI response
-    try {
-      await this.generateAiResponse(savedChat);
-    } catch (error) {
-      this.logger.error(`Failed to generate AI response: ${error.message}`);
+    // Only generate AI response if messageType is 'ai'
+    if (createChatDto.messageType === 'ai') {
+      try {
+        // Generate AI response immediately but with proper sequencing
+        await this.generateAiResponse(savedChat);
+      } catch (error) {
+        this.logger.error(`Failed to generate AI response: ${error.message}`);
+      }
     }
 
     return savedChat;
