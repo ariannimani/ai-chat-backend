@@ -35,19 +35,20 @@ interface MemoryAnalytics {
 export class AiService {
   private readonly logger = new Logger(AiService.name);
   private readonly llm: ChatGroq;
-  
+
   // Phase 1: Dual-layer memory system
   // Room-level memory for shared collaborative context (stories, discussions)
   private readonly roomMemories: Map<string, BufferMemory> = new Map();
-  
+
   // User-level memory for individual context (personal questions, user-specific history)
   // Structure: roomId -> userId -> BufferMemory
-  private readonly userMemories: Map<string, Map<string, BufferMemory>> = new Map();
+  private readonly userMemories: Map<string, Map<string, BufferMemory>> =
+    new Map();
 
   // Phase 3: Memory metadata tracking
   private readonly roomLastAccess: Map<string, Date> = new Map();
   private readonly userLastAccess: Map<string, Map<string, Date>> = new Map();
-  
+
   // Phase 3: Analytics tracking
   private readonly conversationTypeStats = {
     personal: 0,
@@ -55,11 +56,11 @@ export class AiService {
     mixed: 0,
   };
   private lastCleanupTime: Date = new Date();
-  
+
   // Phase 3: Configuration
   private readonly memoryConfig: MemoryConfig;
   private cleanupTimer: NodeJS.Timeout | null = null;
-  
+
   private readonly langsmithClient: Client;
 
   constructor(private configService: ConfigService) {
@@ -79,17 +80,23 @@ export class AiService {
 
     // Phase 3: Initialize memory configuration
     this.memoryConfig = {
-      roomMemoryTTL: this.configService.get<number>('AI_ROOM_MEMORY_TTL') || 1440, // 24 hours
-      userMemoryTTL: this.configService.get<number>('AI_USER_MEMORY_TTL') || 720, // 12 hours
-      cleanupInterval: this.configService.get<number>('AI_CLEANUP_INTERVAL') || 60, // 1 hour
+      roomMemoryTTL:
+        this.configService.get<number>('AI_ROOM_MEMORY_TTL') || 1440, // 24 hours
+      userMemoryTTL:
+        this.configService.get<number>('AI_USER_MEMORY_TTL') || 720, // 12 hours
+      cleanupInterval:
+        this.configService.get<number>('AI_CLEANUP_INTERVAL') || 60, // 1 hour
       maxRoomsPerService: this.configService.get<number>('AI_MAX_ROOMS') || 100,
-      maxUsersPerRoom: this.configService.get<number>('AI_MAX_USERS_PER_ROOM') || 50,
+      maxUsersPerRoom:
+        this.configService.get<number>('AI_MAX_USERS_PER_ROOM') || 50,
     };
 
     // Phase 3: Start cleanup timer
     this.startMemoryCleanup();
 
-    this.logger.log('AI service initialized with Groq, LangSmith, and dual-layer memory system with Phase 3 optimizations');
+    this.logger.log(
+      'AI service initialized with Groq, LangSmith, and dual-layer memory system with Phase 3 optimizations',
+    );
   }
 
   /**
@@ -100,11 +107,16 @@ export class AiService {
       clearInterval(this.cleanupTimer);
     }
 
-    this.cleanupTimer = setInterval(() => {
-      this.performMemoryCleanup();
-    }, this.memoryConfig.cleanupInterval * 60 * 1000);
+    this.cleanupTimer = setInterval(
+      () => {
+        this.performMemoryCleanup();
+      },
+      this.memoryConfig.cleanupInterval * 60 * 1000,
+    );
 
-    this.logger.log(`Memory cleanup scheduled every ${this.memoryConfig.cleanupInterval} minutes`);
+    this.logger.log(
+      `Memory cleanup scheduled every ${this.memoryConfig.cleanupInterval} minutes`,
+    );
   }
 
   /**
@@ -117,8 +129,9 @@ export class AiService {
 
     // Clean up inactive rooms
     for (const [roomId, lastAccess] of this.roomLastAccess.entries()) {
-      const minutesSinceAccess = (now.getTime() - lastAccess.getTime()) / (1000 * 60);
-      
+      const minutesSinceAccess =
+        (now.getTime() - lastAccess.getTime()) / (1000 * 60);
+
       if (minutesSinceAccess > this.memoryConfig.roomMemoryTTL) {
         this.roomMemories.delete(roomId);
         this.roomLastAccess.delete(roomId);
@@ -136,8 +149,9 @@ export class AiService {
       if (!roomUserMemories) continue;
 
       for (const [userId, lastAccess] of userAccessMap.entries()) {
-        const minutesSinceAccess = (now.getTime() - lastAccess.getTime()) / (1000 * 60);
-        
+        const minutesSinceAccess =
+          (now.getTime() - lastAccess.getTime()) / (1000 * 60);
+
         if (minutesSinceAccess > this.memoryConfig.userMemoryTTL) {
           roomUserMemories.delete(userId);
           userAccessMap.delete(userId);
@@ -156,9 +170,11 @@ export class AiService {
     }
 
     this.lastCleanupTime = now;
-    
+
     if (cleanedRooms > 0 || cleanedUsers > 0) {
-      this.logger.log(`Memory cleanup completed: ${cleanedRooms} rooms, ${cleanedUsers} users removed`);
+      this.logger.log(
+        `Memory cleanup completed: ${cleanedRooms} rooms, ${cleanedUsers} users removed`,
+      );
     }
   }
 
@@ -167,10 +183,10 @@ export class AiService {
    */
   private updateAccessTimestamps(roomId: string, userId: string): void {
     const now = new Date();
-    
+
     // Update room access
     this.roomLastAccess.set(roomId, now);
-    
+
     // Update user access
     if (!this.userLastAccess.has(roomId)) {
       this.userLastAccess.set(roomId, new Map());
@@ -186,7 +202,10 @@ export class AiService {
     if (this.roomMemories.size > this.memoryConfig.maxRoomsPerService) {
       const oldestRooms = Array.from(this.roomLastAccess.entries())
         .sort((a, b) => a[1].getTime() - b[1].getTime())
-        .slice(0, this.roomMemories.size - this.memoryConfig.maxRoomsPerService);
+        .slice(
+          0,
+          this.roomMemories.size - this.memoryConfig.maxRoomsPerService,
+        );
 
       for (const [roomId] of oldestRooms) {
         this.clearRoomMemory(roomId);
@@ -241,7 +260,7 @@ export class AiService {
     }
 
     const roomUserMemories = this.userMemories.get(roomId);
-    
+
     // Ensure user exists in room's user memories
     if (!roomUserMemories.has(userId)) {
       const userMemory = new BufferMemory({
@@ -251,7 +270,9 @@ export class AiService {
         returnMessages: false,
       });
       roomUserMemories.set(userId, userMemory);
-      this.logger.log(`Created new user memory for user ${userId} in room: ${roomId}`);
+      this.logger.log(
+        `Created new user memory for user ${userId} in room: ${roomId}`,
+      );
     }
 
     return roomUserMemories.get(userId);
@@ -279,14 +300,21 @@ export class AiService {
     const userContext = userVariables.user_history || '';
 
     // Phase 2: Intelligent conversation type detection
-    const conversationType = this.detectConversationType(currentMessage, roomContext, userContext);
-    
+    const conversationType = this.detectConversationType(
+      currentMessage,
+      roomContext,
+      userContext,
+    );
+
     // Phase 2: Determine context priority based on message content
-    const contextPriority = this.determineContextPriority(currentMessage, conversationType);
+    const contextPriority = this.determineContextPriority(
+      currentMessage,
+      conversationType,
+    );
 
     return {
       roomContext: this.formatRoomContext(roomContext),
-      userContext: this.formatUserContext(userContext, username),
+      userContext: this.formatUserContext(userContext),
       contextPriority,
       conversationType,
     };
@@ -323,7 +351,7 @@ export class AiService {
       'build on',
       'add to',
       'modify',
-      'let\'s',
+      "let's",
       'we should',
       'our story',
       'the story',
@@ -339,16 +367,16 @@ export class AiService {
       'building on',
     ];
 
-    const hasPersonalIndicators = personalIndicators.some(indicator =>
-      lowerMessage.includes(indicator)
+    const hasPersonalIndicators = personalIndicators.some((indicator) =>
+      lowerMessage.includes(indicator),
     );
 
-    const hasCollaborativeIndicators = collaborativeIndicators.some(indicator =>
-      lowerMessage.includes(indicator)
+    const hasCollaborativeIndicators = collaborativeIndicators.some(
+      (indicator) => lowerMessage.includes(indicator),
     );
 
-    const hasOthersWorkIndicators = othersWorkIndicators.some(indicator =>
-      lowerMessage.includes(indicator)
+    const hasOthersWorkIndicators = othersWorkIndicators.some((indicator) =>
+      lowerMessage.includes(indicator),
     );
 
     // Determine conversation type
@@ -356,7 +384,10 @@ export class AiService {
       return 'personal';
     }
 
-    if ((hasCollaborativeIndicators || hasOthersWorkIndicators) && roomContext.length > 0) {
+    if (
+      (hasCollaborativeIndicators || hasOthersWorkIndicators) &&
+      roomContext.length > 0
+    ) {
       return 'collaborative';
     }
 
@@ -396,12 +427,22 @@ export class AiService {
    */
   private formatRoomContext(roomContext: string): string {
     if (!roomContext) return '';
-    
-    // Clean up and format room context
+
+    // Clean up and format room context - remove technical formatting
     const formatted = roomContext
       .split('\n')
-      .filter(line => line.trim().length > 0)
-      .slice(-10) // Keep last 10 interactions to avoid token overflow
+      .filter((line) => line.trim().length > 0)
+      .map((line) => {
+        // Clean up the format to be more natural
+        // Remove "Human:" and "AI:" prefixes if they exist
+        return line
+          .replace(/^Human:\s*/, '')
+          .replace(/^AI:\s*/, '')
+          .replace(/^Assistant:\s*/, '')
+          .trim();
+      })
+      .filter((line) => line.length > 0)
+      .slice(-8) // Keep last 8 interactions to avoid token overflow
       .join('\n');
 
     return formatted;
@@ -410,13 +451,22 @@ export class AiService {
   /**
    * Phase 2: Format user context for better presentation
    */
-  private formatUserContext(userContext: string, username: string): string {
+  private formatUserContext(userContext: string): string {
     if (!userContext) return '';
-    
-    // Clean up and format user context
+
+    // Clean up and format user context - remove technical formatting
     const formatted = userContext
       .split('\n')
-      .filter(line => line.trim().length > 0)
+      .filter((line) => line.trim().length > 0)
+      .map((line) => {
+        // Clean up the format to be more natural
+        return line
+          .replace(/^Human:\s*/, '')
+          .replace(/^AI:\s*/, '')
+          .replace(/^Assistant:\s*/, '')
+          .trim();
+      })
+      .filter((line) => line.length > 0)
       .slice(-5) // Keep last 5 user interactions
       .join('\n');
 
@@ -447,25 +497,24 @@ export class AiService {
    */
   private createPersonalPrompt(): PromptTemplate {
     return PromptTemplate.fromTemplate(`
-You are a helpful AI assistant in a chat room. The user is asking about their personal conversation history.
+You are a helpful AI assistant in a chat room. Focus on the user's personal conversation history and questions.
 
-Current context:
-- Room ID: {roomId}
-- User: {username} (ID: {userId})
-- Message: {input}
+Room: {roomId} | User: {username} | Message: {input}
 
-🔍 USER'S PERSONAL CONTEXT (Priority: HIGH):
+Personal conversation history:
 {userContext}
 
-📋 Room Background (for reference only):
+Room background (for reference):
 {roomContext}
 
 Instructions:
-- FOCUS PRIMARILY on the user's personal context and history
-- Answer questions about "my last question", "what did I ask", etc. using their personal history
-- If they're referencing their own past conversations, use their user-specific context
-- Keep responses personal and relevant to this specific user
-- Be concise and direct
+- Answer based primarily on this user's personal history and context
+- Use their personal conversation when they ask "my last question", "what did I ask", etc.
+- Keep responses personal and direct, without exposing internal system details
+- Don't mention context headers, priorities, or system information
+- Don't repeat or reference the conversation history format in your response
+- Be natural and conversational
+- NEVER include phrases like "PERSONAL CONTEXT", "Priority: HIGH", or system formatting
 
 Response:`);
   }
@@ -477,23 +526,23 @@ Response:`);
     return PromptTemplate.fromTemplate(`
 You are a helpful AI assistant facilitating collaborative work in a chat room.
 
-Current context:
-- Room ID: {roomId}
-- User: {username} (ID: {userId})
-- Message: {input}
+Room: {roomId} | User: {username} | Message: {input}
 
-🌟 SHARED COLLABORATIVE CONTEXT (Priority: HIGH):
+Shared conversation history:
 {roomContext}
 
-👤 {username}'s Background:
+User's background:
 {userContext}
 
 Instructions:
-- FOCUS PRIMARILY on the shared collaborative context (stories, discussions, group work)
-- Build upon, modify, or continue shared content based on the user's request
+- Build upon the shared conversation and collaborative work
+- Continue stories, discussions, or group work naturally
 - Acknowledge contributions from multiple users when relevant
-- Maintain continuity with the shared conversation thread
-- Include the username when saving collaborative content
+- Maintain conversation flow without exposing system internals
+- Don't mention context priorities, headers, or technical details
+- Don't repeat or reference the conversation history format in your response
+- Be natural and engaging
+- NEVER include phrases like "SHARED COLLABORATIVE CONTEXT", "Priority: HIGH", or system formatting
 
 Response:`);
   }
@@ -503,26 +552,24 @@ Response:`);
    */
   private createBalancedPrompt(): PromptTemplate {
     return PromptTemplate.fromTemplate(`
-You are a helpful AI assistant in a chat room that can handle both personal and collaborative conversations.
+You are a helpful AI assistant in a chat room that handles both personal and collaborative conversations naturally.
 
-Current context:
-- Room ID: {roomId}
-- User: {username} (ID: {userId})
-- Message: {input}
+Room: {roomId} | User: {username} | Message: {input}
 
-🌟 SHARED ROOM CONTEXT:
+Shared room conversation:
 {roomContext}
 
-👤 {username}'S PERSONAL CONTEXT:
+User's personal conversation:
 {userContext}
 
 Instructions:
-- Analyze the message to determine if it's personal ("my question") or collaborative ("continue the story")
-- For personal references: Use the user's personal context
-- For collaborative work: Use the shared room context
-- For mixed requests: Combine both contexts appropriately
-- Maintain conversation flow and be contextually aware
-- Be concise but comprehensive
+- Determine if the message is personal ("my question") or collaborative ("continue the story")
+- Use the appropriate context based on what the user is asking
+- Maintain natural conversation flow
+- Don't expose system information, context headers, or technical details
+- Don't repeat or reference the conversation history format in your response
+- Be conversational and helpful
+- NEVER include phrases like "SHARED CONTEXT", "Priority", or system formatting
 
 Response:`);
   }
@@ -548,18 +595,17 @@ Response:`);
       const userMemory = this.getUserMemory(roomId, userId);
 
       // Phase 2: Enhanced context combination with intelligence
-      const {
-        roomContext,
-        userContext,
-        contextPriority,
-        conversationType,
-      } = await this.combineContexts(roomMemory, userMemory, message, username);
+      const { roomContext, userContext, contextPriority, conversationType } =
+        await this.combineContexts(roomMemory, userMemory, message, username);
 
       // Phase 3: Update analytics
       this.conversationTypeStats[conversationType]++;
 
       // Phase 2: Use appropriate prompt template based on conversation type
-      const prompt = this.createContextAwarePrompt(contextPriority, conversationType);
+      const prompt = this.createContextAwarePrompt(
+        contextPriority,
+        conversationType,
+      );
 
       // IMPROVED: Use ConversationChain with user memory for proper context tracking
       // This ensures "what was my last question" works correctly per user
@@ -581,7 +627,10 @@ Response:`);
 
       // Phase 2: Enhanced memory saving with conversation type awareness
       // Only save to room memory for collaborative content (user memory handled by chain)
-      if (conversationType === 'collaborative' || conversationType === 'mixed') {
+      if (
+        conversationType === 'collaborative' ||
+        conversationType === 'mixed'
+      ) {
         await this.saveToRoomMemory(roomMemory, username, message, response);
       }
 
@@ -599,8 +648,8 @@ Response:`);
   }
 
   /**
-   * Phase 1: Basic room memory saving for collaborative context
-   * Save interactions to shared room memory for collaborative context
+   * Phase 1: Enhanced room memory saving for collaborative context
+   * Save interactions to shared room memory with cleaner formatting
    */
   private async saveToRoomMemory(
     roomMemory: BufferMemory,
@@ -609,11 +658,15 @@ Response:`);
     aiResponse: string,
   ): Promise<void> {
     try {
-      // Format for room memory: include username for collaborative context
-      const roomInput = `${username}: ${userMessage}`;
+      // Use cleaner formatting for room memory - avoid technical formatting
+      const roomInput = `User ${username} said: ${userMessage}`;
+      const cleanResponse = aiResponse
+        .replace(/^(AI|Assistant):\s*/i, '')
+        .trim();
+
       await roomMemory.saveContext(
         { input: roomInput },
-        { response: aiResponse }
+        { response: `Assistant replied: ${cleanResponse}` },
       );
     } catch (error) {
       this.logger.warn(`Failed to save to room memory: ${error.message}`);
@@ -629,7 +682,7 @@ Response:`);
     this.roomMemories.delete(roomId);
     this.roomLastAccess.delete(roomId);
     this.logger.log(`Cleared shared room memory for room: ${roomId}`);
-    
+
     // Clear user-specific memories for the room
     this.userMemories.delete(roomId);
     this.userLastAccess.delete(roomId);
@@ -642,16 +695,18 @@ Response:`);
   clearUserMemory(roomId: string, userId: string): void {
     const roomUserMemories = this.userMemories.get(roomId);
     const roomUserAccess = this.userLastAccess.get(roomId);
-    
+
     if (roomUserMemories) {
       roomUserMemories.delete(userId);
     }
-    
+
     if (roomUserAccess) {
       roomUserAccess.delete(userId);
     }
-    
-    this.logger.log(`Cleared user memory for user ${userId} in room: ${roomId}`);
+
+    this.logger.log(
+      `Cleared user memory for user ${userId} in room: ${roomId}`,
+    );
   }
 
   /**
@@ -728,12 +783,12 @@ Response:`);
    */
   updateMemoryConfig(newConfig: Partial<MemoryConfig>): void {
     Object.assign(this.memoryConfig, newConfig);
-    
+
     // Restart cleanup timer if interval changed
     if (newConfig.cleanupInterval) {
       this.startMemoryCleanup();
     }
-    
+
     this.logger.log('Memory configuration updated');
   }
 
@@ -742,13 +797,19 @@ Response:`);
    */
   triggerMemoryCleanup(): { cleanedRooms: number; cleanedUsers: number } {
     const beforeRooms = this.roomMemories.size;
-    const beforeUsers = Array.from(this.userMemories.values()).reduce((total, map) => total + map.size, 0);
-    
+    const beforeUsers = Array.from(this.userMemories.values()).reduce(
+      (total, map) => total + map.size,
+      0,
+    );
+
     this.performMemoryCleanup();
-    
+
     const afterRooms = this.roomMemories.size;
-    const afterUsers = Array.from(this.userMemories.values()).reduce((total, map) => total + map.size, 0);
-    
+    const afterUsers = Array.from(this.userMemories.values()).reduce(
+      (total, map) => total + map.size,
+      0,
+    );
+
     return {
       cleanedRooms: beforeRooms - afterRooms,
       cleanedUsers: beforeUsers - afterUsers,
