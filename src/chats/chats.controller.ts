@@ -4,18 +4,17 @@ import {
   Get,
   Param,
   Query,
-  UseGuards,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ChatsService } from './chats.service';
 import { GetChatDto } from './dto/get-chat.dto';
-import { SupabaseAuthGuard } from '../config/guard/supabase-auth.guard';
-import { ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { ApiConsumes, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { SupabaseService } from '../config/supabase/supabase.service';
 
 @Controller('chats')
+@ApiBearerAuth()
 export class ChatsController {
   constructor(
     private readonly chatsService: ChatsService,
@@ -23,7 +22,6 @@ export class ChatsController {
   ) {}
 
   @Get(':roomId')
-  @UseGuards(SupabaseAuthGuard)
   async findAll(
     @Param('roomId') roomId: string,
     @Query() getChatDto: GetChatDto,
@@ -82,6 +80,7 @@ export class ChatsController {
         },
       };
     } catch (error) {
+      console.error('❌ File upload failed:', error.message);
       throw new Error(`File upload failed: ${error.message}`);
     }
   }
@@ -103,6 +102,7 @@ export class ChatsController {
         data: data || [],
       };
     } catch (error) {
+      console.error('❌ Failed to list files:', error.message);
       throw new Error(`Failed to list files: ${error.message}`);
     }
   }
