@@ -13,7 +13,7 @@ import { Server, Socket } from 'socket.io';
 import { UseGuards, Logger } from '@nestjs/common';
 import { WsSupabaseAuthGuard } from 'src/config/guard/ws-jwt-auth.guard';
 
-@WebSocketGateway(8080, {
+@WebSocketGateway(parseInt(process.env.WS_PORT) || 8080, {
   namespace: '/chats',
   cors: {
     origin: '*',
