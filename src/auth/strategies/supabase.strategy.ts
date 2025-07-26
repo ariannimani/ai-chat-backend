@@ -5,10 +5,17 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 @Injectable()
 export class SupabaseStrategy extends PassportStrategy(Strategy, 'supabase') {
   constructor() {
+    const jwtSecret = process.env.SUPABASE_JWT_SECRET;
+    
+    if (!jwtSecret) {
+      console.error('SUPABASE_JWT_SECRET is not defined!');
+      throw new Error('SUPABASE_JWT_SECRET environment variable is required');
+    }
+
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.SUPABASE_JWT_SECRET,
+      secretOrKey: jwtSecret,
       algorithms: ['HS256'],
     });
   }
