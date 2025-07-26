@@ -14,9 +14,8 @@ export class CreateRoomDto {
   @ValidateIf((o) => o.type != RoomType.PERSONAL)
   name: string;
 
-  @ApiProperty({ required: true })
+  @ApiProperty({ required: false, description: 'Array of user IDs to invite to the room. Leave empty to create a room with just yourself.' })
   @IsArray()
-  @ArrayNotEmpty()
   members: string[];
 
   @ApiProperty({ required: true, default: RoomType.PERSONAL })
