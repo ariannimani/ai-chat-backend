@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { UsersModule } from './users/users.module';
 import { CommandModule } from 'nestjs-command';
 import { AuthModule } from './auth/auth.module';
@@ -8,6 +9,7 @@ import { RoomsModule } from './rooms/rooms.module';
 import { ChatsModule } from './chats/chats.module';
 
 import { SupabaseModule } from './config/supabase/supabase.module';
+import { SupabaseAuthGuard } from './config/guard/supabase-auth.guard';
 import { User } from './users/entities/user.entity';
 import { Room } from './rooms/entities/room.entity';
 import { Chat } from './chats/entities/chat.entity';
@@ -37,6 +39,12 @@ import { Chat } from './chats/entities/chat.entity';
     AuthModule,
     RoomsModule,
     ChatsModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: SupabaseAuthGuard,
+    },
   ],
 })
 export class AppModule {}

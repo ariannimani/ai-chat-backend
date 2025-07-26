@@ -22,12 +22,10 @@ export class SupabaseStrategy extends PassportStrategy(Strategy, 'supabase') {
 
   async validate(payload: any) {
     if (!payload) {
-      console.log('SupabaseStrategy - No payload received');
       throw new UnauthorizedException('No payload in token');
     }
 
     if (!payload.sub) {
-      console.log('SupabaseStrategy - No sub field in payload');
       throw new UnauthorizedException('Invalid token: missing subject');
     }
 

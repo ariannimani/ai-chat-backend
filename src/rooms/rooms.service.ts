@@ -15,7 +15,9 @@ export class RoomsService {
   async create(userId: string, createRoomDto: CreateRoomDto) {
     const user = await this.userRepository.findOne({ where: { id: userId } });
 
-    const memberIds = [...(createRoomDto.members || [])].filter(Boolean);
+    const memberIds = [...(createRoomDto.members || []), user.id].filter(
+      Boolean,
+    );
     const members = await this.userRepository.findByIds(memberIds);
 
     const room = this.roomRepository.create({
