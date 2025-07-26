@@ -1,0 +1,56 @@
+services:
+  - type: web
+    name: nestjs-chat-backend
+    runtime: node
+    region: oregon
+    plan: starter
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start:prod
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Database Configuration
+      - key: SUPABASE_DB_HOST
+        sync: false
+      - key: SUPABASE_DB_PORT
+        value: 5432
+      - key: SUPABASE_DB_USERNAME
+        value: postgres
+      - key: SUPABASE_DB_PASSWORD
+        sync: false
+      - key: SUPABASE_DB_NAME
+        value: postgres
+      # Supabase API Configuration
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      # AI Configuration
+      - key: GROQ_API_KEY
+        sync: false
+      - key: LANGSMITH_API_KEY
+        sync: false
+      - key: LANGSMITH_TRACING
+        value: true
+      - key: LANGSMITH_PROJECT
+        value: nestjs-chat-ai
+      # JWT Configuration
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRATION
+        value: 7d
+      # WebSocket Configuration
+      - key: WS_PORT
+        value: 8080
+    # Enable PR Previews
+    previews:
+      generation: automatic
+    # Optional: Add scaling configuration
+    scaling:
+      minInstances: 1
+      maxInstances: 3 
