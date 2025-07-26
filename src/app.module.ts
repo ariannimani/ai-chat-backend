@@ -6,33 +6,11 @@ import { CommandModule } from 'nestjs-command';
 import { AuthModule } from './auth/auth.module';
 import { RoomsModule } from './rooms/rooms.module';
 import { ChatsModule } from './chats/chats.module';
-import { JwtModule } from '@nestjs/jwt';
+
 import { SupabaseModule } from './config/supabase/supabase.module';
 import { User } from './users/entities/user.entity';
 import { Room } from './rooms/entities/room.entity';
 import { Chat } from './chats/entities/chat.entity';
-
-// Debug logging
-console.log('=== DATABASE CONNECTION DEBUG ===');
-console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'SET' : 'NOT SET');
-if (process.env.DATABASE_URL) {
-  console.log(
-    'DATABASE_URL (first 50 chars):',
-    process.env.DATABASE_URL.substring(0, 50) + '...',
-  );
-}
-console.log('SUPABASE_DB_HOST:', process.env.SUPABASE_DB_HOST || 'NOT SET');
-console.log('SUPABASE_DB_PORT:', process.env.SUPABASE_DB_PORT || 'NOT SET');
-console.log(
-  'SUPABASE_DB_USERNAME:',
-  process.env.SUPABASE_DB_USERNAME || 'NOT SET',
-);
-console.log(
-  'SUPABASE_DB_PASSWORD:',
-  process.env.SUPABASE_DB_PASSWORD ? 'SET' : 'NOT SET',
-);
-console.log('SUPABASE_DB_NAME:', process.env.SUPABASE_DB_NAME || 'NOT SET');
-console.log('=====================================');
 
 @Module({
   imports: [
@@ -52,10 +30,7 @@ console.log('=====================================');
         rejectUnauthorized: false,
       },
     }),
-    JwtModule.register({
-      secret: process.env.JWT_SECRET,
-      signOptions: { expiresIn: process.env.JWT_EXPIRATION },
-    }),
+
     SupabaseModule,
     CommandModule,
     UsersModule,

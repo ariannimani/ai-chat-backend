@@ -9,7 +9,6 @@ import {
 import { AuthService } from './auth.service';
 import { LoginAuthDto } from './dto/login-auth.dto';
 import { RegisterAuthDto } from './dto/register-auth.dto';
-import { JwtAuthGuard } from 'src/config/guard/jwt-auth.guard';
 import { SupabaseAuthGuard } from 'src/config/guard/supabase-auth.guard';
 import { ApiBearerAuth } from '@nestjs/swagger';
 
@@ -27,17 +26,17 @@ export class AuthController {
     return this.authService.register(dto);
   }
 
-  @Get('me')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  me(@Request() req) {
-    return req.user;
-  }
-
-  @Get('supabase/me')
+  @Post('logout')
   @UseGuards(SupabaseAuthGuard)
   @ApiBearerAuth()
-  supabaseMe(@Request() req) {
+  logout() {
+    return this.authService.signOut();
+  }
+
+  @Get('me')
+  @UseGuards(SupabaseAuthGuard)
+  @ApiBearerAuth()
+  me(@Request() req) {
     return req.user;
   }
 }

@@ -1,17 +1,31 @@
-import { Controller, Body, Patch, Request, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Body,
+  Patch,
+  Request,
+  UseGuards,
+  Get,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { JwtAuthGuard } from 'src/config/guard/jwt-auth.guard';
+import { SupabaseAuthGuard } from 'src/config/guard/supabase-auth.guard';
 import { ApiBearerAuth } from '@nestjs/swagger';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Patch('profile')
-  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  @UseGuards(SupabaseAuthGuard)
   @ApiBearerAuth()
-  update(@Request() req, @Body() updateUserDto: UpdateUserDto) {
+  getMe(@Request() req) {
+    return this.usersService.findOne(req.user.id);
+  }
+
+  @Patch('me')
+  @UseGuards(SupabaseAuthGuard)
+  @ApiBearerAuth()
+  updateMe(@Request() req, @Body() updateUserDto: UpdateUserDto) {
     return this.usersService.update(req.user.id, updateUserDto);
   }
 }

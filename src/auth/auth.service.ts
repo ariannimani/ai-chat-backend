@@ -1,46 +1,41 @@
 import { Injectable } from '@nestjs/common';
-import { UsersService } from 'src/users/users.service';
 import { LoginAuthDto } from './dto/login-auth.dto';
 import { RegisterAuthDto } from './dto/register-auth.dto';
-import { JwtService } from '@nestjs/jwt';
+import { SupabaseAuthService } from './supabase-auth.service';
 
 @Injectable()
 export class AuthService {
-  constructor(
-    private readonly usersService: UsersService,
-    private readonly jwtService: JwtService,
-  ) {}
+  constructor(private readonly supabaseAuthService: SupabaseAuthService) {}
 
   async login(dto: LoginAuthDto) {
-    const validatedUser = await this.usersService.validateUser(
+    const result = await this.supabaseAuthService.signInWithSupabase(
       dto.email,
       dto.password,
     );
-    const token = await this.signJwtToken(validatedUser.id);
 
     return {
-      message: 'User logged in successfully',
-      data: {
-        user: validatedUser,
-        token: token,
-      },
+      message: 'User logged in successfully via Supabase',
+      data: result,
     };
   }
 
   async register(dto: RegisterAuthDto) {
-    const createdUser = await this.usersService.create(dto);
-    const token = await this.signJwtToken(createdUser.id);
+    const result = await this.supabaseAuthService.signUpWithSupabase(
+      dto.email,
+      dto.password,
+      {
+        name: dto.name,
+        // Add any other metadata from the DTO
+      },
+    );
 
     return {
-      message: 'User created successfully',
-      data: {
-        user: createdUser,
-        token: token,
-      },
+      message: 'User registered successfully via Supabase',
+      data: result,
     };
   }
 
-  private async signJwtToken(userId: string) {
-    return this.jwtService.signAsync({ sub: userId });
+  async signOut() {
+    return await this.supabaseAuthService.signOut();
   }
 }

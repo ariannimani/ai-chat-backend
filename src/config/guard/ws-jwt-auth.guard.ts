@@ -1,8 +1,8 @@
 import { ExecutionContext, Injectable, CanActivate } from '@nestjs/common';
-import { JwtUtil } from '../util/jwt.util';
+import * as jwt from 'jsonwebtoken';
 
 @Injectable()
-export class WsJwtAuthGuard implements CanActivate {
+export class WsSupabaseAuthGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     try {
       const client = context.switchToWs().getClient();
@@ -25,23 +25,50 @@ export class WsJwtAuthGuard implements CanActivate {
       }
 
       if (!authorization) {
-        console.error('WsJwtAuthGuard: No authorization token provided');
+        console.error('WsSupabaseAuthGuard: No authorization token provided');
         return false;
       }
 
-      const payload = JwtUtil.isValidAuthHeader(authorization);
+      const payload = this.validateSupabaseJWT(authorization);
 
       // Store user info in handshake for later use
       handshake.user = payload;
 
-      console.log(
-        'WsJwtAuthGuard: Authentication successful for user',
-        payload.sub,
-      );
       return true;
     } catch (error) {
-      console.error('WsJwtAuthGuard: Authentication failed', error.message);
+      console.error(
+        'WsSupabaseAuthGuard: Authentication failed',
+        error.message,
+      );
       return false;
     }
+  }
+
+  private validateSupabaseJWT(authorization: string) {
+    if (!authorization) {
+      throw new Error('No authorization header provided');
+    }
+
+    if (typeof authorization !== 'string') {
+      throw new Error('Authorization header must be a string');
+    }
+
+    const parts = authorization.split(' ');
+    if (parts.length !== 2 || parts[0] !== 'Bearer') {
+      throw new Error(
+        'Invalid authorization header format. Expected: Bearer <token>',
+      );
+    }
+
+    const token = parts[1];
+    if (!token) {
+      throw new Error('No token provided in authorization header');
+    }
+
+    const payload = jwt.verify(token, process.env.SUPABASE_JWT_SECRET, {
+      ignoreExpiration: false,
+    });
+
+    return payload;
   }
 }

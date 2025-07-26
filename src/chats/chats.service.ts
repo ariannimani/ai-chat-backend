@@ -35,15 +35,11 @@ export class ChatsService {
     };
 
     const chat = this.chatRepository.create(chatData);
-    console.log('_____chat', chat);
     const savedChat = await this.chatRepository.save(chat);
-
-    console.log('_____savedChat', savedChat);
 
     // Optional: Publish to Supabase realtime for additional real-time features
     try {
       const supabase = this.supabaseService.getClient();
-      console.log('_____supabase', supabase);
       await supabase.channel(`room:${createChatDto.room_id}`).send({
         type: 'broadcast',
         event: 'new_message',

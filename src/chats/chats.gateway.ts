@@ -11,7 +11,7 @@ import { ChatsService } from './chats.service';
 import { CreateChatDto } from './dto/create-chat.dto';
 import { Server, Socket } from 'socket.io';
 import { UseGuards, Logger } from '@nestjs/common';
-import { WsJwtAuthGuard } from 'src/config/guard/ws-jwt-auth.guard';
+import { WsSupabaseAuthGuard } from 'src/config/guard/ws-jwt-auth.guard';
 
 @WebSocketGateway(8080, {
   namespace: '/chats',
@@ -58,7 +58,7 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('join-room')
-  @UseGuards(WsJwtAuthGuard)
+  @UseGuards(WsSupabaseAuthGuard)
   async joinRoom(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { roomId: string },
@@ -69,7 +69,7 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('leave-room')
-  @UseGuards(WsJwtAuthGuard)
+  @UseGuards(WsSupabaseAuthGuard)
   async leaveRoom(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { roomId: string },
@@ -80,7 +80,7 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('create')
-  @UseGuards(WsJwtAuthGuard)
+  @UseGuards(WsSupabaseAuthGuard)
   async create(
     @ConnectedSocket() client: Socket,
     @MessageBody() createChatDto: CreateChatDto,
@@ -94,8 +94,6 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         });
         return;
       }
-
-      console.log('_____senderId', createChatDto);
 
       const chat = await this.chatsService.create(senderId, createChatDto);
 

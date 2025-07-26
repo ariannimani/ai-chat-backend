@@ -11,13 +11,11 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ChatsService } from './chats.service';
 import { GetChatDto } from './dto/get-chat.dto';
-import { JwtAuthGuard } from '../config/guard/jwt-auth.guard';
-import { ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { SupabaseAuthGuard } from '../config/guard/supabase-auth.guard';
+import { ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { SupabaseService } from '../config/supabase/supabase.service';
 
 @Controller('chats')
-@UseGuards(JwtAuthGuard)
-@ApiBearerAuth()
 export class ChatsController {
   constructor(
     private readonly chatsService: ChatsService,
@@ -25,6 +23,7 @@ export class ChatsController {
   ) {}
 
   @Get(':roomId')
+  @UseGuards(SupabaseAuthGuard)
   async findAll(
     @Param('roomId') roomId: string,
     @Query() getChatDto: GetChatDto,

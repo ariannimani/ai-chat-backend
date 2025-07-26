@@ -1,28 +1,37 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt } from 'passport-jwt';
-import { SupabaseAuthStrategy } from 'nestjs-supabase-auth';
+import { ExtractJwt, Strategy } from 'passport-jwt';
 
 @Injectable()
-export class SupabaseStrategy extends PassportStrategy(
-  SupabaseAuthStrategy,
-  'supabase',
-) {
-  public constructor() {
+export class SupabaseStrategy extends PassportStrategy(Strategy, 'supabase') {
+  constructor() {
     super({
-      supabaseUrl: process.env.SUPABASE_URL,
-      supabaseKey: process.env.SUPABASE_ANON_KEY,
-      supabaseOptions: {},
-      supabaseJwtSecret: process.env.SUPABASE_JWT_SECRET,
-      extractor: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      ignoreExpiration: false,
+      secretOrKey: process.env.SUPABASE_JWT_SECRET,
+      algorithms: ['HS256'],
     });
   }
 
-  async validate(payload: any): Promise<any> {
-    return super.validate(payload);
-  }
+  async validate(payload: any) {
+    if (!payload) {
+      console.log('SupabaseStrategy - No payload received');
+      throw new UnauthorizedException('No payload in token');
+    }
 
-  authenticate(req) {
-    super.authenticate(req);
+    if (!payload.sub) {
+      console.log('SupabaseStrategy - No sub field in payload');
+      throw new UnauthorizedException('Invalid token: missing subject');
+    }
+
+    const user = {
+      id: payload.sub,
+      email: payload.email,
+      aud: payload.aud,
+      role: payload.role || 'authenticated',
+      ...payload,
+    };
+
+    return user;
   }
 }
