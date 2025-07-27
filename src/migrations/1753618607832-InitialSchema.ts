@@ -46,7 +46,7 @@ export class InitialSchema1753618607832 implements MigrationInterface {
             CREATE TABLE "chats" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(), 
                 "content" character varying NOT NULL, 
-                "isAiResponse" boolean NOT NULL DEFAULT false, 
+                "sender_type" character varying NOT NULL DEFAULT 'user', 
                 "sender_id" uuid NOT NULL, 
                 "room_id" uuid NOT NULL, 
                 "createdAt" TIMESTAMP NOT NULL DEFAULT now(), 

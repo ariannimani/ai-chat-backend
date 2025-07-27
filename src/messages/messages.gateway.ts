@@ -105,17 +105,7 @@ export class MessagesGateway
         return;
       }
 
-      const message = await this.messagesService.create(
-        senderId,
-        createMessageDto,
-      );
-
-      // Emit the user message to all clients in the room
-      // Keep the original messageType from the DTO ('message' or 'ai')
-      this.server.to(`room:${createMessageDto.room_id}`).emit('new-message', {
-        ...message,
-        messageType: createMessageDto.messageType || 'message',
-      });
+      await this.messagesService.create(senderId, createMessageDto);
 
       this.logger.log(
         `Message sent to room ${createMessageDto.room_id} by user ${senderId}`,
@@ -139,7 +129,7 @@ export class MessagesGateway
   broadcastAiResponse(roomId: string, aiResponse: any) {
     this.server.to(`room:${roomId}`).emit('new-message', {
       ...aiResponse,
-      // Don't override messageType - use the isAiResponse field to identify AI responses
+      // Don't override messageType - use the sender_type field to identify AI responses
     });
     this.logger.log(`AI response broadcast to room: ${roomId}`);
   }

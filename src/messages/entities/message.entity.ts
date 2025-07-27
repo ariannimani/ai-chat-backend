@@ -18,8 +18,8 @@ export class Message {
   @Column()
   content: string;
 
-  @Column({ default: false })
-  isAiResponse: boolean;
+  @Column({ type: 'enum', enum: ['user', 'ai', 'system'] })
+  sender_type: 'user' | 'ai' | 'system';
 
   @ManyToOne(() => User, { eager: true })
   @JoinColumn({ name: 'sender_id' })

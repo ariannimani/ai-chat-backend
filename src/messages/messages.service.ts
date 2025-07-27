@@ -31,7 +31,7 @@ export class MessagesService {
       ...createMessageDto,
       sender_id: senderId,
       room_id: createMessageDto.room_id,
-      isAiResponse: false, // This is a user message
+      sender_type: 'user' as const, // This is a user message
     };
 
     const message = this.messageRepository.create(messageData);
@@ -92,7 +92,7 @@ export class MessagesService {
         content: aiResponseText,
         sender_id: userMessage.sender_id, // We'll use the same sender for simplicity, but mark as AI
         room_id: userMessage.room_id,
-        isAiResponse: true, // This is an AI response
+        sender_type: 'ai' as const, // This is an AI response
       };
 
       const aiMessage = this.messageRepository.create(aiMessageData);
