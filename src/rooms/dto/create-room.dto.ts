@@ -1,12 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { IsArray, IsEnum, IsNotEmpty, ValidateIf } from 'class-validator';
 import { RoomType } from '../enums/room-type.enum';
-import {
-  ArrayNotEmpty,
-  IsArray,
-  IsEnum,
-  IsNotEmpty,
-  ValidateIf,
-} from 'class-validator';
 
 export class CreateRoomDto {
   @ApiProperty()
@@ -14,7 +8,11 @@ export class CreateRoomDto {
   @ValidateIf((o) => o.type != RoomType.PERSONAL)
   name: string;
 
-  @ApiProperty({ required: false, description: 'Array of user IDs to invite to the room. Leave empty to create a room with just yourself.' })
+  @ApiProperty({
+    required: false,
+    description:
+      'Array of user IDs to invite to the room. Leave empty to create a room with just yourself.',
+  })
   @IsArray()
   members: string[];
 

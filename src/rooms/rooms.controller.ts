@@ -28,25 +28,32 @@ export class RoomsController {
   async create(@Request() req, @Body() createRoomDto: CreateRoomDto) {
     const userId = req.authUser.id;
     const userEmail = req.authUser.email;
-    
-         this.logger.log(`🏠 Creating room "${createRoomDto.name}" for ${userEmail} with ${createRoomDto.members?.length || 0} members`);
+
+    this.logger.log(
+      `🏠 Creating room "${createRoomDto.name}" for ${userEmail} with ${createRoomDto.members?.length || 0} members`,
+    );
 
     if (!userId) {
       this.logger.error('❌ User ID not found in authentication data');
       throw new Error('User ID not found in authentication data');
     }
 
-         try {
-       const result = await this.roomsService.create(userId.toString(), createRoomDto, {
-         email: userEmail,
-         name: req.authUser.name || req.authUser.user_metadata?.name || userEmail
-       });
-       this.logger.log(`✅ Room created successfully: ${result.id}`);
-       return result;
-     } catch (error) {
-       this.logger.error(`❌ Room creation failed:`, error.message);
-       throw error;
-     }
+    try {
+      const result = await this.roomsService.create(
+        userId.toString(),
+        createRoomDto,
+        {
+          email: userEmail,
+          name:
+            req.authUser.name || req.authUser.user_metadata?.name || userEmail,
+        },
+      );
+      this.logger.log(`✅ Room created successfully: ${result.id}`);
+      return result;
+    } catch (error) {
+      this.logger.error(`❌ Room creation failed:`, error.message);
+      throw error;
+    }
   }
 
   @Get()

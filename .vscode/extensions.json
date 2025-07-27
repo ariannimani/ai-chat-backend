@@ -1,0 +1,20 @@
+{
+  "recommendations": [
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "ms-vscode.vscode-typescript-next",
+    "bradlc.vscode-tailwindcss",
+    "formulahendry.auto-rename-tag",
+    "christian-kohler.path-intellisense",
+    "ms-vscode.vscode-json",
+    "rangav.vscode-thunder-client",
+    "humao.rest-client",
+    "ms-vscode.vscode-typescript-next",
+    "bradlc.vscode-tailwindcss",
+    "christian-kohler.npm-intellisense",
+    "wix.vscode-import-cost",
+    "usernamehw.errorlens",
+    "johnpapa.vscode-peacock",
+    "eamodio.gitlens"
+  ]
+} 

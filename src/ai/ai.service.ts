@@ -1,7 +1,7 @@
 import { PromptTemplate } from '@langchain/core/prompts';
+import { ChatGroq } from '@langchain/groq';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ChatGroq } from '@langchain/groq';
 import { ConversationChain } from 'langchain/chains';
 import { BufferMemory } from 'langchain/memory';
 import { Client } from 'langsmith';
@@ -286,7 +286,7 @@ export class AiService {
     roomMemory: BufferMemory,
     userMemory: BufferMemory,
     currentMessage: string,
-    username: string,
+    _username: string,
   ): Promise<{
     roomContext: string;
     userContext: string;
@@ -326,7 +326,7 @@ export class AiService {
   private detectConversationType(
     message: string,
     roomContext: string,
-    userContext: string,
+    _userContext: string,
   ): 'personal' | 'collaborative' | 'mixed' {
     const lowerMessage = message.toLowerCase();
 

@@ -14,12 +14,16 @@ export class RoomsService {
     @InjectRepository(User) private userRepository: Repository<User>,
   ) {}
 
-  async create(userId: string, createRoomDto: CreateRoomDto, userInfo?: { email: string; name: string }) {
+  async create(
+    userId: string,
+    createRoomDto: CreateRoomDto,
+    userInfo?: { email: string; name: string },
+  ) {
     let user = await this.userRepository.findOne({ where: { id: userId } });
 
     if (!user && userInfo) {
       this.logger.log(`🆕 Auto-creating user: ${userInfo.email}`);
-      
+
       // Auto-create user in local database
       user = this.userRepository.create({
         id: userId,
@@ -29,20 +33,26 @@ export class RoomsService {
         password: 'supabase-auth', // Placeholder since we use Supabase for auth
         password_key: 'supabase-auth', // Placeholder since we use Supabase for auth
       });
-      
+
       user = await this.userRepository.save(user);
     } else if (!user) {
       this.logger.error(`❌ User not found with ID: ${userId}`);
-      throw new Error(`User not found with ID: ${userId}. Please ensure user is properly registered in the system.`);
+      throw new Error(
+        `User not found with ID: ${userId}. Please ensure user is properly registered in the system.`,
+      );
     }
 
     // Combine provided member IDs with current user ID
-    const memberIds = [...(createRoomDto.members || []), user.id].filter(Boolean);
+    const memberIds = [...(createRoomDto.members || []), user.id].filter(
+      Boolean,
+    );
     const members = await this.userRepository.findByIds(memberIds);
 
     // Check if any members were not found
-    const foundMemberIds = members.map(m => m.id);
-    const missingMemberIds = memberIds.filter(id => !foundMemberIds.includes(id));
+    const foundMemberIds = members.map((m) => m.id);
+    const missingMemberIds = memberIds.filter(
+      (id) => !foundMemberIds.includes(id),
+    );
     if (missingMemberIds.length > 0) {
       this.logger.warn(`⚠️ Some members not found:`, missingMemberIds);
     }
@@ -53,7 +63,9 @@ export class RoomsService {
     });
 
     const savedRoom = await this.roomRepository.save(room);
-    this.logger.log(`✅ Room "${savedRoom.name}" created with ${savedRoom.members.length} members`);
+    this.logger.log(
+      `✅ Room "${savedRoom.name}" created with ${savedRoom.members.length} members`,
+    );
 
     return savedRoom;
   }
