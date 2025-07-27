@@ -78,6 +78,9 @@ export class RoomsService {
         },
       },
       relations: ['members'],
+      order: {
+        createdAt: 'DESC',
+      },
     });
 
     this.logger.log(`📋 Found ${rooms.length} rooms for user`);

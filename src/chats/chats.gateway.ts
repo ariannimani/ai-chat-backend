@@ -86,8 +86,16 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() createChatDto: CreateChatDto,
   ) {
     try {
-      const senderId = (client.handshake as any).user?.sub;
+      const user = (client.handshake as any).user;
+      const senderId = user?.id;
+
+      this.logger.debug(`WebSocket user object:`, user);
+      this.logger.debug(`Extracted sender ID: ${senderId}`);
+
       if (!senderId) {
+        this.logger.error(
+          'Authentication failed - no user ID found in handshake',
+        );
         client.emit('chat-error', {
           message: 'Authentication required',
           error: 'User not found in handshake',
