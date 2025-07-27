@@ -1,17 +1,17 @@
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  UpdateDateColumn,
-  ManyToOne,
+  Entity,
   JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
-import { User } from '../../users/entities/user.entity';
 import { Room } from '../../rooms/entities/room.entity';
+import { User } from '../../users/entities/user.entity';
 
-@Entity('chats')
-export class Chat {
+@Entity('messages')
+export class Message {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -28,7 +28,7 @@ export class Chat {
   @Column()
   sender_id: string;
 
-  @ManyToOne(() => Room, (room) => room.chats)
+  @ManyToOne(() => Room, (room) => room.messages)
   @JoinColumn({ name: 'room_id' })
   room: Room;
 

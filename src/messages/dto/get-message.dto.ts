@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class GetChatDto {
+export class GetMessageDto {
   @ApiProperty({
     required: false,
   })

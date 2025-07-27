@@ -1,15 +1,15 @@
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  UpdateDateColumn,
-  ManyToMany,
+  Entity,
   JoinTable,
+  ManyToMany,
   OneToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
+import { Message } from '../../messages/entities/message.entity';
 import { User } from '../../users/entities/user.entity';
-import { Chat } from '../../chats/entities/chat.entity';
 import { RoomType } from '../enums/room-type.enum';
 
 @Entity('rooms')
@@ -41,8 +41,8 @@ export class Room {
   })
   members: User[];
 
-  @OneToMany(() => Chat, (chat) => chat.room)
-  chats: Chat[];
+  @OneToMany(() => Message, (message) => message.room)
+  messages: Message[];
 
   @CreateDateColumn()
   createdAt: Date;

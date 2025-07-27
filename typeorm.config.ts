@@ -1,6 +1,6 @@
 import { config } from 'dotenv';
 import { DataSource } from 'typeorm';
-import { Chat } from './src/chats/entities/chat.entity';
+import { Message } from './src/messages/entities/message.entity';
 import { Room } from './src/rooms/entities/room.entity';
 import { User } from './src/users/entities/user.entity';
 
@@ -14,7 +14,7 @@ export default new DataSource({
   username: process.env.SUPABASE_DB_USERNAME,
   password: process.env.SUPABASE_DB_PASSWORD,
   database: process.env.SUPABASE_DB_NAME,
-  entities: [User, Room, Chat],
+  entities: [User, Room, Message],
   migrations: ['src/migrations/*.ts'],
   ssl: {
     rejectUnauthorized: false,

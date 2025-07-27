@@ -2,17 +2,17 @@ import {
   Body,
   Controller,
   Get,
+  Logger,
   Param,
   Post,
   Query,
   Request,
-  Logger,
 } from '@nestjs/common';
-import { RoomsService } from './rooms.service';
-import { CreateRoomDto } from './dto/create-room.dto';
 import { ApiBearerAuth, ApiParam } from '@nestjs/swagger';
-import { GetChatDto } from 'src/chats/dto/get-chat.dto';
-import { ChatsService } from 'src/chats/chats.service';
+import { GetMessageDto } from 'src/messages/dto/get-message.dto';
+import { MessagesService } from 'src/messages/messages.service';
+import { CreateRoomDto } from './dto/create-room.dto';
+import { RoomsService } from './rooms.service';
 
 @Controller('rooms')
 @ApiBearerAuth()
@@ -21,7 +21,7 @@ export class RoomsController {
 
   constructor(
     private readonly roomsService: RoomsService,
-    private readonly chatsService: ChatsService,
+    private readonly messagesService: MessagesService,
   ) {}
 
   @Post()
@@ -67,9 +67,9 @@ export class RoomsController {
     return this.roomsService.getByRequest(userId.toString());
   }
 
-  @Get(':id/chats')
+  @Get(':id/messages')
   @ApiParam({ name: 'id', required: true })
-  getChats(@Param('id') id, @Query() dto: GetChatDto) {
-    return this.chatsService.findAll(id, new GetChatDto(dto));
+  getMessages(@Param('id') id, @Query() dto: GetMessageDto) {
+    return this.messagesService.findAll(id, new GetMessageDto(dto));
   }
 }

@@ -1,32 +1,32 @@
 import {
   Controller,
-  Post,
   Get,
   Param,
+  Post,
   Query,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ChatsService } from './chats.service';
-import { GetChatDto } from './dto/get-chat.dto';
-import { ApiConsumes, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes } from '@nestjs/swagger';
 import { SupabaseService } from '../config/supabase/supabase.service';
+import { GetMessageDto } from './dto/get-message.dto';
+import { MessagesService } from './messages.service';
 
-@Controller('chats')
+@Controller('messages')
 @ApiBearerAuth()
-export class ChatsController {
+export class MessagesController {
   constructor(
-    private readonly chatsService: ChatsService,
+    private readonly messagesService: MessagesService,
     private readonly supabaseService: SupabaseService,
   ) {}
 
   @Get(':roomId')
   async findAll(
     @Param('roomId') roomId: string,
-    @Query() getChatDto: GetChatDto,
+    @Query() getMessageDto: GetMessageDto,
   ) {
-    return this.chatsService.findAll(roomId, getChatDto);
+    return this.messagesService.findAll(roomId, getMessageDto);
   }
 
   @Post(':roomId/upload')
@@ -51,10 +51,10 @@ export class ChatsController {
     try {
       const supabase = this.supabaseService.getClient();
       const fileName = `${Date.now()}-${file.originalname}`;
-      const filePath = `chat-files/${roomId}/${fileName}`;
+      const filePath = `message-files/${roomId}/${fileName}`;
 
       const { data, error } = await supabase.storage
-        .from('chat-uploads')
+        .from('message-uploads')
         .upload(filePath, file.buffer, {
           contentType: file.mimetype,
           upsert: false,
@@ -67,7 +67,7 @@ export class ChatsController {
       // Get public URL
       const {
         data: { publicUrl },
-      } = supabase.storage.from('chat-uploads').getPublicUrl(filePath);
+      } = supabase.storage.from('message-uploads').getPublicUrl(filePath);
 
       return {
         message: 'File uploaded successfully',
@@ -90,8 +90,8 @@ export class ChatsController {
     try {
       const supabase = this.supabaseService.getClient();
       const { data, error } = await supabase.storage
-        .from('chat-uploads')
-        .list(`chat-files/${roomId}`);
+        .from('message-uploads')
+        .list(`message-files/${roomId}`);
 
       if (error) {
         throw new Error(`Failed to list files: ${error.message}`);

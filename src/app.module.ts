@@ -5,13 +5,13 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CommandModule } from 'nestjs-command';
 import { AiModule } from './ai/ai.module';
 import { AuthModule } from './auth/auth.module';
-import { ChatsModule } from './chats/chats.module';
+import { MessagesModule } from './messages/messages.module';
 import { RoomsModule } from './rooms/rooms.module';
 import { UsersModule } from './users/users.module';
 
-import { Chat } from './chats/entities/chat.entity';
 import { SupabaseAuthGuard } from './config/guard/supabase-auth.guard';
 import { SupabaseModule } from './config/supabase/supabase.module';
+import { Message } from './messages/entities/message.entity';
 import { Room } from './rooms/entities/room.entity';
 import { User } from './users/entities/user.entity';
 
@@ -27,7 +27,7 @@ import { User } from './users/entities/user.entity';
       username: process.env.SUPABASE_DB_USERNAME,
       password: process.env.SUPABASE_DB_PASSWORD,
       database: process.env.SUPABASE_DB_NAME,
-      entities: [User, Room, Chat],
+      entities: [User, Room, Message],
       // Development: auto-sync for quick iteration
       synchronize: process.env.NODE_ENV === 'development',
       // Production: use migrations for controlled schema changes
@@ -44,7 +44,7 @@ import { User } from './users/entities/user.entity';
     UsersModule,
     AuthModule,
     RoomsModule,
-    ChatsModule,
+    MessagesModule,
   ],
   providers: [
     {

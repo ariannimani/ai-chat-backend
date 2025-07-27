@@ -1,20 +1,20 @@
+import { Logger, UseGuards } from '@nestjs/common';
 import {
-  WebSocketGateway,
-  SubscribeMessage,
-  MessageBody,
-  WebSocketServer,
   ConnectedSocket,
+  MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  SubscribeMessage,
+  WebSocketGateway,
+  WebSocketServer,
 } from '@nestjs/websockets';
-import { ChatsService } from './chats.service';
-import { CreateChatDto } from './dto/create-chat.dto';
 import { Server, Socket } from 'socket.io';
-import { UseGuards, Logger } from '@nestjs/common';
 import { WsSupabaseAuthGuard } from 'src/config/guard/ws-jwt-auth.guard';
+import { CreateMessageDto } from './dto/create-message.dto';
+import { MessagesService } from './messages.service';
 
 @WebSocketGateway(parseInt(process.env.WS_PORT) || 8080, {
-  namespace: '/chats',
+  namespace: '/chat',
   cors: {
     origin: '*',
     credentials: true,
@@ -22,12 +22,14 @@ import { WsSupabaseAuthGuard } from 'src/config/guard/ws-jwt-auth.guard';
   transports: ['websocket', 'polling'],
   allowEIO3: true,
 })
-export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
-  private readonly logger = new Logger(ChatsGateway.name);
+export class MessagesGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
+  private readonly logger = new Logger(MessagesGateway.name);
 
-  constructor(private readonly chatsService: ChatsService) {
+  constructor(private readonly messagesService: MessagesService) {
     // Set the gateway reference in the service to enable broadcasting
-    this.chatsService.setGateway(this);
+    this.messagesService.setGateway(this);
   }
 
   @WebSocketServer()
@@ -40,7 +42,7 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       );
       // No authentication during connection - it happens per-message
       client.emit('connection-success', {
-        message: 'Connected to chat server',
+        message: 'Connected to message server',
         clientId: client.id,
         timestamp: new Date().toISOString(),
       });
@@ -79,11 +81,11 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.emit('left-room', { roomId: data.roomId });
   }
 
-  @SubscribeMessage('create')
+  @SubscribeMessage('message')
   @UseGuards(WsSupabaseAuthGuard)
   async create(
     @ConnectedSocket() client: Socket,
-    @MessageBody() createChatDto: CreateChatDto,
+    @MessageBody() createMessageDto: CreateMessageDto,
   ) {
     try {
       const user = (client.handshake as any).user;
@@ -96,31 +98,34 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.logger.error(
           'Authentication failed - no user ID found in handshake',
         );
-        client.emit('chat-error', {
+        client.emit('message-error', {
           message: 'Authentication required',
           error: 'User not found in handshake',
         });
         return;
       }
 
-      const chat = await this.chatsService.create(senderId, createChatDto);
+      const message = await this.messagesService.create(
+        senderId,
+        createMessageDto,
+      );
 
       // Emit the user message to all clients in the room
-      // Keep the original messageType from the DTO ('chat' or 'ai')
-      this.server.to(`room:${createChatDto.room_id}`).emit('new-chat', {
-        ...chat,
-        messageType: createChatDto.messageType || 'chat',
+      // Keep the original messageType from the DTO ('message' or 'ai')
+      this.server.to(`room:${createMessageDto.room_id}`).emit('new-message', {
+        ...message,
+        messageType: createMessageDto.messageType || 'message',
       });
 
       this.logger.log(
-        `Message sent to room ${createChatDto.room_id} by user ${senderId}`,
+        `Message sent to room ${createMessageDto.room_id} by user ${senderId}`,
       );
 
       // Note: AI response will be handled asynchronously in the service
       // and broadcast separately when ready
     } catch (error) {
-      this.logger.error(`Error creating chat: ${error.message}`);
-      client.emit('chat-error', {
+      this.logger.error(`Error creating message: ${error.message}`);
+      client.emit('message-error', {
         message: 'Failed to send message',
         error: error.message,
       });
@@ -132,7 +137,7 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
    * This method can be called from the service
    */
   broadcastAiResponse(roomId: string, aiResponse: any) {
-    this.server.to(`room:${roomId}`).emit('new-chat', {
+    this.server.to(`room:${roomId}`).emit('new-message', {
       ...aiResponse,
       // Don't override messageType - use the isAiResponse field to identify AI responses
     });

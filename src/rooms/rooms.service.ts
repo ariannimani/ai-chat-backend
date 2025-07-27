@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Room } from './entities/room.entity';
-import { CreateRoomDto } from './dto/create-room.dto';
 import { User } from '../users/entities/user.entity';
+import { CreateRoomDto } from './dto/create-room.dto';
+import { Room } from './entities/room.entity';
 
 @Injectable()
 export class RoomsService {
@@ -77,7 +77,7 @@ export class RoomsService {
           id: userId,
         },
       },
-      relations: ['members'],
+      relations: ['members', 'messages'],
       order: {
         createdAt: 'DESC',
       },

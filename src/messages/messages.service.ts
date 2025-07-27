@@ -1,49 +1,49 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { CreateChatDto } from './dto/create-chat.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Chat } from './entities/chat.entity';
-import { Repository, LessThan } from 'typeorm';
-import { GetChatDto } from './dto/get-chat.dto';
-import { SupabaseService } from '../config/supabase/supabase.service';
+import { LessThan, Repository } from 'typeorm';
 import { AiService } from '../ai/ai.service';
+import { SupabaseService } from '../config/supabase/supabase.service';
 import { UsersService } from '../users/users.service';
+import { CreateMessageDto } from './dto/create-message.dto';
+import { GetMessageDto } from './dto/get-message.dto';
+import { Message } from './entities/message.entity';
 
 @Injectable()
-export class ChatsService {
-  private readonly logger = new Logger(ChatsService.name);
-  private chatsGateway: any; // We'll set this via setter to avoid circular dependency
+export class MessagesService {
+  private readonly logger = new Logger(MessagesService.name);
+  private messagesGateway: any; // We'll set this via setter to avoid circular dependency
 
   constructor(
-    @InjectRepository(Chat) private chatRepository: Repository<Chat>,
+    @InjectRepository(Message) private messageRepository: Repository<Message>,
     private supabaseService: SupabaseService,
     private aiService: AiService,
     private usersService: UsersService,
   ) {}
 
   setGateway(gateway: any) {
-    this.chatsGateway = gateway;
+    this.messagesGateway = gateway;
   }
 
-  async create(senderId: string, createChatDto: CreateChatDto) {
-    // Note: Room must exist in database before creating chats
+  async create(senderId: string, createMessageDto: CreateMessageDto) {
+    // Note: Room must exist in database before creating messages
 
-    const chatData = {
-      ...createChatDto,
+    const messageData = {
+      ...createMessageDto,
       sender_id: senderId,
-      room_id: createChatDto.room_id,
+      room_id: createMessageDto.room_id,
       isAiResponse: false, // This is a user message
     };
 
-    const chat = this.chatRepository.create(chatData);
-    const savedChat = await this.chatRepository.save(chat);
+    const message = this.messageRepository.create(messageData);
+    const savedMessage = await this.messageRepository.save(message);
 
     // Optional: Publish to Supabase realtime for additional real-time features
     try {
       const supabase = this.supabaseService.getClient();
-      await supabase.channel(`room:${createChatDto.room_id}`).send({
+      await supabase.channel(`room:${createMessageDto.room_id}`).send({
         type: 'broadcast',
         event: 'new_message',
-        payload: savedChat,
+        payload: savedMessage,
       });
     } catch (error) {
       this.logger.warn(
@@ -53,53 +53,58 @@ export class ChatsService {
     }
 
     // Only generate AI response if messageType is 'ai'
-    if (createChatDto.messageType === 'ai') {
+    if (createMessageDto.messageType === 'ai') {
       try {
         // Generate AI response immediately but with proper sequencing
-        await this.generateAiResponse(savedChat);
+        await this.generateAiResponse(savedMessage);
       } catch (error) {
         this.logger.error(`Failed to generate AI response: ${error.message}`);
       }
     }
 
-    return savedChat;
+    return savedMessage;
   }
 
   /**
    * Generate an AI response to a user message
    */
-  private async generateAiResponse(userChat: Chat): Promise<Chat | null> {
+  private async generateAiResponse(
+    userMessage: Message,
+  ): Promise<Message | null> {
     try {
       // Get user information
-      const user = await this.usersService.findOne(userChat.sender_id);
+      const user = await this.usersService.findOne(userMessage.sender_id);
       if (!user) {
-        this.logger.error(`User not found: ${userChat.sender_id}`);
+        this.logger.error(`User not found: ${userMessage.sender_id}`);
         return null;
       }
 
       // Generate AI response using the AI service
       const aiResponseText = await this.aiService.generateResponse(
-        userChat.room_id,
+        userMessage.room_id,
         user.id,
         user.username,
-        userChat.content,
+        userMessage.content,
       );
 
-      // Create AI response chat message
-      const aiChatData = {
+      // Create AI response message
+      const aiMessageData = {
         content: aiResponseText,
-        sender_id: userChat.sender_id, // We'll use the same sender for simplicity, but mark as AI
-        room_id: userChat.room_id,
+        sender_id: userMessage.sender_id, // We'll use the same sender for simplicity, but mark as AI
+        room_id: userMessage.room_id,
         isAiResponse: true, // This is an AI response
       };
 
-      const aiChat = this.chatRepository.create(aiChatData);
-      const savedAiChat = await this.chatRepository.save(aiChat);
+      const aiMessage = this.messageRepository.create(aiMessageData);
+      const savedAiMessage = await this.messageRepository.save(aiMessage);
 
       // Broadcast AI response via WebSocket Gateway
-      if (this.chatsGateway) {
+      if (this.messagesGateway) {
         try {
-          this.chatsGateway.broadcastAiResponse(userChat.room_id, savedAiChat);
+          this.messagesGateway.broadcastAiResponse(
+            userMessage.room_id,
+            savedAiMessage,
+          );
         } catch (error) {
           this.logger.warn(
             'Failed to broadcast AI response via WebSocket:',
@@ -111,10 +116,10 @@ export class ChatsService {
       // Also broadcast via Supabase for additional real-time features
       try {
         const supabase = this.supabaseService.getClient();
-        await supabase.channel(`room:${userChat.room_id}`).send({
+        await supabase.channel(`room:${userMessage.room_id}`).send({
           type: 'broadcast',
           event: 'ai_response',
-          payload: savedAiChat,
+          payload: savedAiMessage,
         });
       } catch (error) {
         this.logger.warn(
@@ -124,10 +129,10 @@ export class ChatsService {
       }
 
       this.logger.log(
-        `Generated AI response for room ${userChat.room_id}, user ${user.username}`,
+        `Generated AI response for room ${userMessage.room_id}, user ${user.username}`,
       );
 
-      return savedAiChat;
+      return savedAiMessage;
     } catch (error) {
       this.logger.error(
         `Failed to generate AI response: ${error.message}`,
@@ -137,24 +142,24 @@ export class ChatsService {
     }
   }
 
-  async findAll(roomId: string, getChatDto: GetChatDto) {
+  async findAll(roomId: string, getMessageDto: GetMessageDto) {
     const whereCondition: any = {
       room_id: roomId,
     };
 
-    if (getChatDto.last_id) {
-      whereCondition.id = LessThan(getChatDto.last_id);
+    if (getMessageDto.last_id) {
+      whereCondition.id = LessThan(getMessageDto.last_id);
     }
 
-    return await this.chatRepository.find({
+    return await this.messageRepository.find({
       where: whereCondition,
       order: { createdAt: 'DESC' },
-      take: getChatDto.limit,
+      take: getMessageDto.limit,
       relations: ['sender'],
     });
   }
 
-  // Supabase real-time subscription helper for chat rooms
+  // Supabase real-time subscription helper for message rooms
   subscribeToRoom(roomId: string, callback: (payload: any) => void) {
     try {
       const supabase = this.supabaseService.getClient();
