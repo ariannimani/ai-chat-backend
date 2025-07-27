@@ -28,7 +28,11 @@ import { User } from './users/entities/user.entity';
       password: process.env.SUPABASE_DB_PASSWORD,
       database: process.env.SUPABASE_DB_NAME,
       entities: [User, Room, Chat],
-      synchronize: process.env.NODE_ENV !== 'production',
+      // Development: auto-sync for quick iteration
+      synchronize: process.env.NODE_ENV === 'development',
+      // Production: use migrations for controlled schema changes
+      migrations: ['dist/migrations/*.js'],
+      migrationsRun: process.env.NODE_ENV === 'production',
       ssl: {
         rejectUnauthorized: false,
       },

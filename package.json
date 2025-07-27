@@ -26,7 +26,14 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "deps:check": "npm outdated",
-    "deps:update": "npm update"
+    "deps:update": "npm update",
+    "typeorm": "typeorm-ts-node-commonjs -d typeorm.config.ts",
+    "typeorm:generate-migration": "npm run typeorm -- migration:generate",
+    "typeorm:run-migrations": "npm run typeorm -- migration:run",
+    "typeorm:revert-migration": "npm run typeorm -- migration:revert",
+    "typeorm:create-migration": "npm run typeorm -- migration:create",
+    "db:migrate": "npm run typeorm:run-migrations",
+    "db:rollback": "npm run typeorm:revert-migration"
   },
   "dependencies": {
     "@langchain/groq": "^0.1.2",
