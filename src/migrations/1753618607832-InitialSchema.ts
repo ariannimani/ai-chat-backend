@@ -14,7 +14,7 @@ export class InitialSchema1753618607832 implements MigrationInterface {
 
     // Create users table
     await queryRunner.query(`
-            CREATE TABLE "users" (
+            CREATE TABLE "profiles" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(), 
                 "name" character varying NOT NULL, 
                 "username" character varying NOT NULL, 
@@ -58,7 +58,7 @@ export class InitialSchema1753618607832 implements MigrationInterface {
     // Add foreign keys
     await queryRunner.query(`
             ALTER TABLE "chats" ADD CONSTRAINT "FK_chats_sender" 
-            FOREIGN KEY ("sender_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE NO ACTION
+            FOREIGN KEY ("sender_id") REFERENCES "profiles"("id") ON DELETE CASCADE ON UPDATE NO ACTION
         `);
 
     await queryRunner.query(`
@@ -68,10 +68,10 @@ export class InitialSchema1753618607832 implements MigrationInterface {
 
     // Create indexes for performance
     await queryRunner.query(
-      `CREATE INDEX "IDX_users_username" ON "users" ("username")`,
+      `CREATE INDEX "IDX_users_username" ON "profiles" ("username")`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_users_email" ON "users" ("email")`,
+      `CREATE INDEX "IDX_users_email" ON "profiles" ("email")`,
     );
     await queryRunner.query(
       `CREATE INDEX "IDX_rooms_type" ON "rooms" ("type")`,
@@ -107,7 +107,7 @@ export class InitialSchema1753618607832 implements MigrationInterface {
     // Drop tables
     await queryRunner.query(`DROP TABLE "chats"`);
     await queryRunner.query(`DROP TABLE "rooms"`);
-    await queryRunner.query(`DROP TABLE "users"`);
+    await queryRunner.query(`DROP TABLE "profiles"`);
 
     // Drop enum
     await queryRunner.query(`DROP TYPE "room_type"`);

@@ -81,6 +81,53 @@ export class MessagesGateway
     client.emit('left-room', { roomId: data.roomId });
   }
 
+  @SubscribeMessage('typing')
+  @UseGuards(WsSupabaseAuthGuard)
+  handleTyping(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string },
+  ) {
+    const user = (client.handshake as any).user;
+    if (!user) {
+      client.emit('typing-error', { message: 'User not authenticated' });
+      return;
+    }
+
+    this.logger.log(
+      `${user.user_metadata.name || user.email} is typing in room ${data.roomId}`,
+    );
+
+    // Broadcast to all clients in the room except the sender
+    this.server.to(`room:${data.roomId}`).emit('user-typing', {
+      username: user.user_metadata.name || user.email,
+      userId: user.id,
+      roomId: data.roomId,
+    });
+  }
+
+  @SubscribeMessage('stop-typing')
+  @UseGuards(WsSupabaseAuthGuard)
+  handleStopTyping(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string },
+  ) {
+    const user = (client.handshake as any).user;
+    if (!user) {
+      client.emit('typing-error', { message: 'User not authenticated' });
+      return;
+    }
+
+    this.logger.log(
+      `${user.user_metadata.name || user.email} is stop typing in room ${data.roomId}`,
+    );
+
+    // Broadcast to all clients in the room except the sender
+    this.server.to(`room:${data.roomId}`).emit('user-stopped-typing', {
+      userId: user.id,
+      roomId: data.roomId,
+    });
+  }
+
   @SubscribeMessage('message')
   @UseGuards(WsSupabaseAuthGuard)
   async create(
@@ -105,24 +152,11 @@ export class MessagesGateway
         return;
       }
 
-      const message = await this.messagesService.create(
-        senderId,
-        createMessageDto,
-      );
-
-      // Emit the user message to all clients in the room
-      // Keep the original messageType from the DTO ('message' or 'ai')
-      this.server.to(`room:${createMessageDto.room_id}`).emit('new-message', {
-        ...message,
-        messageType: createMessageDto.messageType || 'message',
-      });
+      await this.messagesService.create(senderId, createMessageDto);
 
       this.logger.log(
         `Message sent to room ${createMessageDto.room_id} by user ${senderId}`,
       );
-
-      // Note: AI response will be handled asynchronously in the service
-      // and broadcast separately when ready
     } catch (error) {
       this.logger.error(`Error creating message: ${error.message}`);
       client.emit('message-error', {
@@ -137,11 +171,22 @@ export class MessagesGateway
    * This method can be called from the service
    */
   broadcastAiResponse(roomId: string, aiResponse: any) {
+    console.log('aiResponse', aiResponse, roomId);
     this.server.to(`room:${roomId}`).emit('new-message', {
       ...aiResponse,
-      // Don't override messageType - use the sender_type field to identify AI responses
+      messageType: 'ai',
     });
     this.logger.log(`AI response broadcast to room: ${roomId}`);
+  }
+
+  broadcastUserMessage(roomId: string, senderId: string, userMessage: any) {
+    this.server.to(`room:${roomId}`).emit('new-message', {
+      ...userMessage,
+      messageType: 'user',
+      senderId,
+    });
+
+    this.logger.log(`User message broadcast to room: ${roomId}`);
   }
 
   afterInit() {

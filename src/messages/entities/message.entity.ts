@@ -4,7 +4,7 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
-  PrimaryGeneratedColumn,
+  PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { Room } from '../../rooms/entities/room.entity';
@@ -12,7 +12,7 @@ import { User } from '../../users/entities/user.entity';
 
 @Entity('messages')
 export class Message {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryColumn('uuid')
   id: string;
 
   @Column()

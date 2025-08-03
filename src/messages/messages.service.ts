@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, Repository } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import { AiService } from '../ai/ai.service';
 import { SupabaseService } from '../config/supabase/supabase.service';
 import { UsersService } from '../users/users.service';
@@ -26,14 +27,16 @@ export class MessagesService {
 
   async create(senderId: string, createMessageDto: CreateMessageDto) {
     // Note: Room must exist in database before creating messages
-
+    console.log('createMessageDto', createMessageDto);
     const messageData = {
-      ...createMessageDto,
+      id: createMessageDto.id,
+      content: createMessageDto.content,
       sender_id: senderId,
       room_id: createMessageDto.room_id,
       sender_type: 'user' as const, // This is a user message
     };
 
+    console.log('messageData', messageData);
     const message = this.messageRepository.create(messageData);
     const savedMessage = await this.messageRepository.save(message);
 
@@ -52,17 +55,23 @@ export class MessagesService {
       );
     }
 
+    if (this.messagesGateway) {
+      this.messagesGateway.broadcastUserMessage(
+        createMessageDto.room_id,
+        senderId,
+        savedMessage,
+      );
+    }
+
     // Only generate AI response if messageType is 'ai'
     if (createMessageDto.messageType === 'ai') {
       try {
         // Generate AI response immediately but with proper sequencing
         await this.generateAiResponse(savedMessage);
       } catch (error) {
-        this.logger.error(`Failed to generate AI response: ${error.message}`);
+        throw new Error(`Failed to generate AI response: ${error.message}`);
       }
     }
-
-    return savedMessage;
   }
 
   /**
@@ -89,6 +98,7 @@ export class MessagesService {
 
       // Create AI response message
       const aiMessageData = {
+        id: uuidv4(),
         content: aiResponseText,
         sender_id: userMessage.sender_id, // We'll use the same sender for simplicity, but mark as AI
         room_id: userMessage.room_id,

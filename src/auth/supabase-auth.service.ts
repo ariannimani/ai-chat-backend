@@ -19,6 +19,8 @@ export class SupabaseAuthService {
         },
       });
 
+      console.log('data', data, error);
+
       if (error) {
         // Handle rate limiting specifically
         if (

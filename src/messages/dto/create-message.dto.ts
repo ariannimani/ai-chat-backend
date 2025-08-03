@@ -1,6 +1,9 @@
 import { IsIn, IsNotEmpty, IsOptional } from 'class-validator';
 
 export class CreateMessageDto {
+  @IsOptional()
+  readonly id: string;
+
   @IsNotEmpty()
   readonly room_id: string;
 

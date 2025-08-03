@@ -59,6 +59,15 @@ export class RoomsController {
         },
       );
       this.logger.log(`✅ Room created successfully: ${result.id}`);
+
+      if (createRoomDto.members.length > 0) {
+        createRoomDto.members.forEach((member) => {
+          this.roomsService.createInvitation(result.id, userId, {
+            email: member,
+          });
+        });
+      }
+
       return result;
     } catch (error) {
       this.logger.error(`❌ Room creation failed:`, error.message);
