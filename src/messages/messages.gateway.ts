@@ -105,7 +105,17 @@ export class MessagesGateway
         return;
       }
 
-      await this.messagesService.create(senderId, createMessageDto);
+      const message = await this.messagesService.create(
+        senderId,
+        createMessageDto,
+      );
+
+      // Emit the user message to all clients in the room
+      // Keep the original messageType from the DTO ('message' or 'ai')
+      this.server.to(`room:${createMessageDto.room_id}`).emit('new-message', {
+        ...message,
+        messageType: createMessageDto.messageType || 'message',
+      });
 
       this.logger.log(
         `Message sent to room ${createMessageDto.room_id} by user ${senderId}`,
