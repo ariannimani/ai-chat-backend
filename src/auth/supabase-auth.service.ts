@@ -20,7 +20,27 @@ export class SupabaseAuthService {
       });
 
       if (error) {
-        throw new Error(`Supabase signup failed: ${error.message}`);
+        // Handle rate limiting specifically
+        if (
+          error.message.includes(
+            'For security purposes, you can only request this after',
+          )
+        ) {
+          const match = error.message.match(/after (\d+) seconds?/);
+          const waitTime = match ? match[1] : 'a few';
+          throw new Error(
+            `Rate limit exceeded. Please wait ${waitTime} seconds before trying again.`,
+          );
+        }
+
+        // Handle other potential errors
+        if (error.message.includes('User already registered')) {
+          throw new Error(
+            'An account with this email already exists. Please try logging in instead.',
+          );
+        }
+
+        throw new Error(`Signup failed: ${error.message}`);
       }
 
       this.logger.log(`User signed up via Supabase: ${email}`);

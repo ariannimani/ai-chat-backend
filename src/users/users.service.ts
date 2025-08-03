@@ -3,12 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { RegisterAuthDto } from '../auth/dto/register-auth.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from './entities/user.entity';
 import { Repository } from 'typeorm';
+import { RegisterAuthDto } from '../auth/dto/register-auth.dto';
 import { PasswordHashHelper } from '../helper/hash/password-hash.helper';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { User } from './entities/user.entity';
 
 @Injectable()
 export class UsersService {
@@ -30,6 +30,31 @@ export class UsersService {
     } catch (error) {
       throw new BadRequestException(error.message);
     }
+  }
+
+  // Create user with Supabase ID (for Supabase auth integration)
+  async createWithSupabaseId(supabaseUserId: string, dto: RegisterAuthDto) {
+    const userData = {
+      name: dto.name,
+      username: dto.username,
+      email: dto.email,
+      supabase_user_id: supabaseUserId, // Store Supabase user ID separately
+      password: 'supabase-auth', // Placeholder since Supabase handles auth
+      password_key: 'supabase-auth', // Placeholder since Supabase handles auth
+    };
+
+    try {
+      return await this.userRepository.save(userData);
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
+  }
+
+  // Find user by Supabase ID
+  async findBySupabaseId(supabaseUserId: string) {
+    return await this.userRepository.findOne({
+      where: { supabase_user_id: supabaseUserId },
+    });
   }
 
   async validateUser(email: string, password: string) {

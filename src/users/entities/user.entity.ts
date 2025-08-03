@@ -1,8 +1,8 @@
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 
@@ -19,6 +19,9 @@ export class User {
 
   @Column({ unique: true })
   email: string;
+
+  @Column({ nullable: true, unique: true })
+  supabase_user_id: string;
 
   @Column({ select: false })
   password: string;

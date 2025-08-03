@@ -1,9 +1,17 @@
-import { Body, Controller, Get, Post, Request } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpException,
+  HttpStatus,
+  Post,
+  Request,
+} from '@nestjs/common';
+import { ApiBearerAuth } from '@nestjs/swagger';
+import { Public } from 'src/config/guard/public.decorator';
 import { AuthService } from './auth.service';
 import { LoginAuthDto } from './dto/login-auth.dto';
 import { RegisterAuthDto } from './dto/register-auth.dto';
-import { Public } from 'src/config/guard/public.decorator';
-import { ApiBearerAuth } from '@nestjs/swagger';
 
 @Controller('auth')
 export class AuthController {
@@ -17,8 +25,42 @@ export class AuthController {
 
   @Post('register')
   @Public()
-  register(@Body() dto: RegisterAuthDto) {
-    return this.authService.register(dto);
+  async register(@Body() dto: RegisterAuthDto) {
+    try {
+      return await this.authService.register(dto);
+    } catch (error) {
+      if (error.message.includes('Rate limit exceeded')) {
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.TOO_MANY_REQUESTS,
+            message: error.message,
+            error: 'Too Many Requests',
+          },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+
+      if (error.message.includes('already exists')) {
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.CONFLICT,
+            message: error.message,
+            error: 'Conflict',
+          },
+          HttpStatus.CONFLICT,
+        );
+      }
+
+      // Generic bad request for other signup errors
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: error.message,
+          error: 'Bad Request',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 
   @Post('logout')
