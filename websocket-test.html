@@ -1,0 +1,197 @@
+<!doctype html>
+<html>
+  <head>
+    <title>WebSocket Connection Test</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .status {
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 5px;
+      }
+      .connected {
+        background: #d4edda;
+        color: #155724;
+      }
+      .disconnected {
+        background: #f8d7da;
+        color: #721c24;
+      }
+      .connecting {
+        background: #fff3cd;
+        color: #856404;
+      }
+      button {
+        padding: 10px 15px;
+        margin: 5px;
+      }
+      input {
+        padding: 8px;
+        margin: 5px;
+        width: 200px;
+      }
+      .log {
+        background: #f8f9fa;
+        padding: 10px;
+        height: 300px;
+        overflow-y: auto;
+        font-family: monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🔌 WebSocket Connection Test</h1>
+
+    <div class="status disconnected" id="status">❌ Not Connected</div>
+
+    <div>
+      <h3>Connection Settings:</h3>
+      <input
+        type="text"
+        id="serverUrl"
+        value="http://localhost:8080/chats"
+        placeholder="Server URL"
+      />
+      <input type="text" id="token" placeholder="JWT Token (optional)" />
+      <button onclick="connect()">🔌 Connect</button>
+      <button onclick="disconnect()">❌ Disconnect</button>
+    </div>
+
+    <div>
+      <h3>Test Messages:</h3>
+      <input type="text" id="roomId" value="test-room" placeholder="Room ID" />
+      <button onclick="joinRoom()">🏠 Join Room</button>
+      <button onclick="testMessage()">💬 Send Test Message</button>
+    </div>
+
+    <div>
+      <h3>Connection Log:</h3>
+      <button onclick="clearLog()">Clear Log</button>
+      <div class="log" id="log"></div>
+    </div>
+
+    <script>
+      let socket = null;
+
+      function log(message) {
+        const logDiv = document.getElementById('log');
+        const timestamp = new Date().toLocaleTimeString();
+        logDiv.innerHTML += `[${timestamp}] ${message}<br>`;
+        logDiv.scrollTop = logDiv.scrollHeight;
+      }
+
+      function updateStatus(status, className) {
+        const statusDiv = document.getElementById('status');
+        statusDiv.textContent = status;
+        statusDiv.className = `status ${className}`;
+      }
+
+      function connect() {
+        const serverUrl = document.getElementById('serverUrl').value;
+        const token = document.getElementById('token').value;
+
+        log(`🔌 Attempting to connect to: ${serverUrl}`);
+        updateStatus('🔄 Connecting...', 'connecting');
+
+        try {
+          const options = {
+            transports: ['websocket', 'polling'],
+            timeout: 10000,
+            forceNew: true,
+          };
+
+          if (token) {
+            options.auth = { token: token };
+            log(`🔑 Using authentication token`);
+          }
+
+          socket = io(serverUrl, options);
+
+          socket.on('connect', () => {
+            log(`✅ Connected successfully! Socket ID: ${socket.id}`);
+            updateStatus('✅ Connected', 'connected');
+          });
+
+          socket.on('disconnect', (reason) => {
+            log(`❌ Disconnected: ${reason}`);
+            updateStatus('❌ Disconnected', 'disconnected');
+          });
+
+          socket.on('connect_error', (error) => {
+            log(`🚫 Connection error: ${error.message}`);
+            updateStatus('🚫 Connection Failed', 'disconnected');
+          });
+
+          socket.on('connection-success', (data) => {
+            log(`🎉 Server welcome: ${JSON.stringify(data)}`);
+          });
+
+          socket.on('connection-error', (data) => {
+            log(`❌ Server error: ${JSON.stringify(data)}`);
+          });
+
+          // Listen for any custom events
+          socket.onAny((eventName, ...args) => {
+            if (
+              !['connect', 'disconnect', 'connect_error'].includes(eventName)
+            ) {
+              log(`📨 Event '${eventName}': ${JSON.stringify(args)}`);
+            }
+          });
+        } catch (error) {
+          log(`💥 Client error: ${error.message}`);
+          updateStatus('💥 Error', 'disconnected');
+        }
+      }
+
+      function disconnect() {
+        if (socket) {
+          socket.disconnect();
+          socket = null;
+          log('🔌 Manually disconnected');
+          updateStatus('❌ Disconnected', 'disconnected');
+        }
+      }
+
+      function joinRoom() {
+        if (!socket || !socket.connected) {
+          log('❌ Not connected to server');
+          return;
+        }
+
+        const roomId = document.getElementById('roomId').value;
+        log(`🏠 Joining room: ${roomId}`);
+        socket.emit('join-room', { roomId: roomId });
+      }
+
+      function testMessage() {
+        if (!socket || !socket.connected) {
+          log('❌ Not connected to server');
+          return;
+        }
+
+        const roomId = document.getElementById('roomId').value;
+        const message = {
+          room_id: roomId,
+          content: `Test message from WebSocket client at ${new Date().toLocaleTimeString()}`,
+          messageType: 'chat',
+        };
+
+        log(`💬 Sending message: ${JSON.stringify(message)}`);
+        socket.emit('create', message);
+      }
+
+      function clearLog() {
+        document.getElementById('log').innerHTML = '';
+      }
+
+      // Auto-connect on page load for testing
+      log('🚀 WebSocket test client loaded');
+      log('💡 Click "Connect" to test the WebSocket connection');
+    </script>
+  </body>
+</html>

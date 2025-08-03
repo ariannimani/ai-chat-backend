@@ -12,6 +12,7 @@ import { UsersModule } from './users/users.module';
 import { SupabaseAuthGuard } from './config/guard/supabase-auth.guard';
 import { SupabaseModule } from './config/supabase/supabase.module';
 import { Message } from './messages/entities/message.entity';
+import { Invitation } from './rooms/entities/invitation.entity';
 import { Room } from './rooms/entities/room.entity';
 import { User } from './users/entities/user.entity';
 
@@ -27,7 +28,7 @@ import { User } from './users/entities/user.entity';
       username: process.env.SUPABASE_DB_USERNAME,
       password: process.env.SUPABASE_DB_PASSWORD,
       database: process.env.SUPABASE_DB_NAME,
-      entities: [User, Room, Message],
+      entities: [User, Room, Message, Invitation],
       // Development: auto-sync for quick iteration
       synchronize: process.env.NODE_ENV === 'development',
       // Production: use migrations for controlled schema changes
