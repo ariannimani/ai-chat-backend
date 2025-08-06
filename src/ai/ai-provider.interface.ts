@@ -14,6 +14,7 @@ export interface AiModel {
   supportsFunctionCalling?: boolean;
   supportsVision?: boolean;
   supportsStreaming?: boolean;
+  enabled: boolean;
 }
 
 export interface AiProviderConfig {
@@ -78,6 +79,7 @@ export const AVAILABLE_MODELS: Record<AiProvider, AiModel[]> = {
       supportsFunctionCalling: true,
       supportsVision: true,
       supportsStreaming: true,
+      enabled: false,
     },
     {
       id: 'gpt-4o-mini',
@@ -89,6 +91,7 @@ export const AVAILABLE_MODELS: Record<AiProvider, AiModel[]> = {
       supportsFunctionCalling: true,
       supportsVision: true,
       supportsStreaming: true,
+      enabled: true,
     },
     {
       id: 'gpt-3.5-turbo',
@@ -100,6 +103,7 @@ export const AVAILABLE_MODELS: Record<AiProvider, AiModel[]> = {
       supportsFunctionCalling: true,
       supportsVision: false,
       supportsStreaming: true,
+      enabled: false,
     },
     {
       id: 'o1-preview',
@@ -111,6 +115,7 @@ export const AVAILABLE_MODELS: Record<AiProvider, AiModel[]> = {
       supportsFunctionCalling: false,
       supportsVision: false,
       supportsStreaming: false,
+      enabled: false,
     },
     {
       id: 'o1-mini',
@@ -122,6 +127,7 @@ export const AVAILABLE_MODELS: Record<AiProvider, AiModel[]> = {
       supportsFunctionCalling: false,
       supportsVision: false,
       supportsStreaming: false,
+      enabled: false,
     },
   ],
   [AiProvider.GEMINI]: [
@@ -135,6 +141,7 @@ export const AVAILABLE_MODELS: Record<AiProvider, AiModel[]> = {
       supportsFunctionCalling: true,
       supportsVision: true,
       supportsStreaming: true,
+      enabled: false,
     },
     {
       id: 'gemini-1.5-pro',
@@ -146,6 +153,7 @@ export const AVAILABLE_MODELS: Record<AiProvider, AiModel[]> = {
       supportsFunctionCalling: true,
       supportsVision: true,
       supportsStreaming: true,
+      enabled: false,
     },
     {
       id: 'gemini-1.5-flash',
@@ -157,6 +165,7 @@ export const AVAILABLE_MODELS: Record<AiProvider, AiModel[]> = {
       supportsFunctionCalling: true,
       supportsVision: true,
       supportsStreaming: true,
+      enabled: false,
     },
   ],
   [AiProvider.GROQ]: [
@@ -170,6 +179,7 @@ export const AVAILABLE_MODELS: Record<AiProvider, AiModel[]> = {
       supportsFunctionCalling: true,
       supportsVision: false,
       supportsStreaming: true,
+      enabled: true,
     },
     {
       id: 'llama3-8b-8192',
@@ -181,6 +191,7 @@ export const AVAILABLE_MODELS: Record<AiProvider, AiModel[]> = {
       supportsFunctionCalling: true,
       supportsVision: false,
       supportsStreaming: true,
+      enabled: false,
     },
     {
       id: 'mixtral-8x7b-32768',
@@ -192,6 +203,7 @@ export const AVAILABLE_MODELS: Record<AiProvider, AiModel[]> = {
       supportsFunctionCalling: true,
       supportsVision: false,
       supportsStreaming: true,
+      enabled: false,
     },
     {
       id: 'gemma2-9b-it',
@@ -203,6 +215,7 @@ export const AVAILABLE_MODELS: Record<AiProvider, AiModel[]> = {
       supportsFunctionCalling: false,
       supportsVision: false,
       supportsStreaming: true,
+      enabled: false,
     },
   ],
 };

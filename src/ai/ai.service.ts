@@ -974,7 +974,9 @@ ${aiInstructions ? `Additional instructions: ${aiInstructions}` : ''}`;
    * Get all available providers and their models
    */
   getAllAvailableModels() {
-    return Object.values(AVAILABLE_MODELS).flat();
+    return Object.values(AVAILABLE_MODELS)
+      .flat()
+      .filter((model) => model.enabled);
   }
 
   /**
