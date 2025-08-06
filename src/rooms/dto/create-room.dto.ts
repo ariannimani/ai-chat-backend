@@ -1,5 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsEnum, IsNotEmpty, ValidateIf } from 'class-validator';
+import {
+  IsArray,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  ValidateIf,
+} from 'class-validator';
 import { RoomType } from '../enums/room-type.enum';
 
 export class CreateRoomDto {
@@ -20,4 +27,9 @@ export class CreateRoomDto {
   @IsEnum(RoomType)
   @ValidateIf((o) => o.type)
   type: RoomType;
+
+  @ApiProperty({ required: false, description: 'AI instructions for the room' })
+  @IsString()
+  @IsOptional()
+  aiInstructions: string;
 }

@@ -44,6 +44,9 @@ export class Room {
   @OneToMany(() => Message, (message) => message.room)
   messages: Message[];
 
+  @Column({ nullable: true })
+  ai_instructions: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

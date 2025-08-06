@@ -72,6 +72,7 @@ export class RoomsService {
     const room = this.roomRepository.create({
       ...createRoomDto,
       members: [...members, user], // Ensure current user is included
+      ai_instructions: createRoomDto.aiInstructions,
     });
 
     const savedRoom = await this.roomRepository.save(room);
