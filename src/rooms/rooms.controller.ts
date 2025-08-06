@@ -6,7 +6,6 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
-  Put,
   Query,
   Request,
 } from '@nestjs/common';
@@ -21,7 +20,6 @@ import { AiService } from 'src/ai/ai.service';
 import { GetMessageDto } from 'src/messages/dto/get-message.dto';
 import { MessagesService } from 'src/messages/messages.service';
 import { CreateRoomDto } from './dto/create-room.dto';
-import { UpdateRoomAiDto } from './dto/update-room-ai.dto';
 import { RoomsService } from './rooms.service';
 
 @Controller('rooms')
@@ -92,38 +90,6 @@ export class RoomsController {
       provider,
       models: models,
     };
-  }
-
-  @Get(':id/ai')
-  @ApiOperation({ summary: 'Get AI configuration for a room' })
-  @ApiParam({ name: 'id', description: 'Room ID' })
-  async getRoomAiConfig(
-    @Param('id', ParseUUIDPipe) roomId: string,
-    @Request() req,
-  ) {
-    const userId = req.authUser.id;
-
-    this.logger.log(
-      `🤖 Getting AI config for room ${roomId} by user ${userId}`,
-    );
-
-    return this.roomsService.getRoomAiConfig(roomId, userId);
-  }
-
-  @Put(':id/ai')
-  @ApiParam({ name: 'id', description: 'Room ID' })
-  async updateRoomAiConfig(
-    @Param('id', ParseUUIDPipe) roomId: string,
-    @Body() updateRoomAiDto: UpdateRoomAiDto,
-    @Request() req,
-  ) {
-    const userId = req.authUser.id;
-
-    this.logger.log(
-      `🤖 Updating AI config for room ${roomId} by user ${userId}`,
-    );
-
-    return this.roomsService.updateAiConfig(roomId, userId, updateRoomAiDto);
   }
 
   @Get(':id')
