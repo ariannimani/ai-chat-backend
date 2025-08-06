@@ -2,8 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
+import { AiProviderFactory } from '../ai/ai-provider.factory';
+import { AiProvider } from '../ai/ai-provider.interface';
 import { AiService } from '../ai/ai.service';
+import { AiConfig } from '../ai/entities/ai-config.entity';
 import { SupabaseService } from '../config/supabase/supabase.service';
+import { Room } from '../rooms/entities/room.entity';
 import { UsersService } from '../users/users.service';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { GetMessageDto } from './dto/get-message.dto';
@@ -16,6 +20,9 @@ export class MessagesService {
 
   constructor(
     @InjectRepository(Message) private messageRepository: Repository<Message>,
+    @InjectRepository(Room) private roomRepository: Repository<Room>,
+    @InjectRepository(AiConfig)
+    private aiConfigRepository: Repository<AiConfig>,
     private supabaseService: SupabaseService,
     private aiService: AiService,
     private usersService: UsersService,
@@ -76,6 +83,7 @@ export class MessagesService {
 
   /**
    * Generate an AI response to a user message
+   * Updated to work with separate AiConfig entity and preserve conversation history
    */
   private async generateAiResponse(
     userMessage: Message,
@@ -88,12 +96,49 @@ export class MessagesService {
         return null;
       }
 
-      // Generate AI response using the AI service
+      // Get room and its AI configuration
+      const room = await this.roomRepository.findOne({
+        where: { id: userMessage.room_id },
+        relations: ['aiConfig'],
+      });
+
+      if (!room) {
+        this.logger.error(`Room not found: ${userMessage.room_id}`);
+        return null;
+      }
+
+      let aiConfig = room.aiConfig;
+
+      // Create default AI config if it doesn't exist
+      if (!aiConfig) {
+        this.logger.log(`Creating default AI config for room ${room.id}`);
+        const defaultConfig = AiProviderFactory.getDefaultConfig(
+          AiProvider.GROQ,
+        );
+
+        aiConfig = this.aiConfigRepository.create({
+          roomId: room.id,
+          provider: AiProvider.GROQ,
+          model: defaultConfig.model || 'llama3-70b-8192',
+          instructions: room.ai_instructions,
+          temperature: defaultConfig.temperature || 0.7,
+          max_tokens: defaultConfig.maxTokens || 1000,
+          top_p: defaultConfig.topP || 1.0,
+          frequency_penalty: defaultConfig.frequencyPenalty || 0.0,
+          presence_penalty: defaultConfig.presencePenalty || 0.0,
+        });
+
+        aiConfig = await this.aiConfigRepository.save(aiConfig);
+      }
+
+      // Generate AI response using the AI service with room's AI configuration
+      // The AI service will maintain conversation history regardless of model changes
       const aiResponseText = await this.aiService.generateResponse(
         userMessage.room_id,
         user.id,
         user.username,
         userMessage.content,
+        aiConfig.toRoomConfig(), // Convert AiConfig to the expected format
       );
 
       // Create AI response message
@@ -139,7 +184,7 @@ export class MessagesService {
       }
 
       this.logger.log(
-        `Generated AI response for room ${userMessage.room_id}, user ${user.username}`,
+        `✅ Generated AI response for message ${userMessage.id} in room ${userMessage.room_id} using ${aiConfig.provider}/${aiConfig.model}`,
       );
 
       return savedAiMessage;
@@ -152,49 +197,81 @@ export class MessagesService {
     }
   }
 
-  async findAll(roomId: string, getMessageDto: GetMessageDto) {
-    const whereCondition: any = {
-      room_id: roomId,
-    };
-
-    if (getMessageDto.last_id) {
-      whereCondition.id = LessThan(getMessageDto.last_id);
-    }
-
-    return await this.messageRepository.find({
-      where: whereCondition,
-      order: { createdAt: 'DESC' },
-      take: getMessageDto.limit,
-      relations: ['sender'],
+  async getByRoomId(
+    roomId: string,
+    userId: string,
+    getMessageDto: GetMessageDto,
+  ) {
+    // First check if user has access to the room
+    const room = await this.roomRepository.findOne({
+      where: { id: roomId },
+      relations: ['members'],
     });
+
+    if (!room) {
+      throw new Error('Room not found');
+    }
+
+    const isMember = room.members.some((member) => member.id === userId);
+    if (!isMember) {
+      throw new Error('Access denied to this room');
+    }
+
+    const { limit = 50, last_id } = getMessageDto;
+
+    const queryBuilder = this.messageRepository
+      .createQueryBuilder('message')
+      .where('message.room_id = :roomId', { roomId })
+      .orderBy('message.createdAt', 'DESC')
+      .limit(limit);
+
+    if (last_id) {
+      queryBuilder.andWhere('message.id < :lastId', {
+        lastId: last_id,
+      });
+    }
+
+    const messages = await queryBuilder.getMany();
+
+    this.logger.log(
+      `📨 Retrieved ${messages.length} messages for room ${roomId}`,
+    );
+
+    return messages.reverse(); // Return in chronological order
   }
 
-  // Supabase real-time subscription helper for message rooms
-  subscribeToRoom(roomId: string, callback: (payload: any) => void) {
-    try {
-      const supabase = this.supabaseService.getClient();
-      const channel = supabase
-        .channel(`room:${roomId}`)
-        .on('broadcast', { event: 'new_message' }, callback)
-        .subscribe();
+  async findAll(roomId: string, dto: GetMessageDto) {
+    const { limit, last_id } = dto;
 
-      this.logger.log(`Subscribed to room: ${roomId}`);
-      return channel;
-    } catch (error) {
-      this.logger.error('Failed to subscribe to room:', error.message);
-      return null;
+    let queryBuilder = this.messageRepository
+      .createQueryBuilder('message')
+      .where('message.room_id = :roomId', { roomId })
+      .orderBy('message.createdAt', 'DESC')
+      .limit(limit);
+
+    if (last_id) {
+      queryBuilder = queryBuilder.andWhere('message.id < :lastId', {
+        lastId: last_id,
+      });
     }
+
+    const messages = await queryBuilder.getMany();
+    return messages.reverse(); // Return in chronological order
   }
 
-  // Unsubscribe from room
-  unsubscribeFromRoom(channel: any) {
-    try {
-      if (channel) {
-        this.supabaseService.getClient().removeChannel(channel);
-        this.logger.log('Unsubscribed from room');
-      }
-    } catch (error) {
-      this.logger.error('Failed to unsubscribe from room:', error.message);
-    }
+  // Cleanup old messages (can be called via cron job)
+  async cleanupOldMessages(daysToKeep: number = 30) {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
+
+    const result = await this.messageRepository.delete({
+      createdAt: LessThan(cutoffDate),
+    });
+
+    this.logger.log(
+      `🧹 Cleaned up ${result.affected} messages older than ${daysToKeep} days`,
+    );
+
+    return result;
   }
 }

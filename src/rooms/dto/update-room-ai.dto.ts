@@ -1,48 +1,19 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
-  IsArray,
   IsEnum,
-  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
   Max,
   Min,
-  ValidateIf,
 } from 'class-validator';
 import { AiProvider } from '../../ai/ai-provider.interface';
-import { RoomType } from '../enums/room-type.enum';
 
-export class CreateRoomDto {
-  @ApiProperty()
-  @IsNotEmpty()
-  @ValidateIf((o) => o.type != RoomType.PERSONAL)
-  name: string;
-
-  @ApiProperty({
-    required: false,
-    description:
-      'Array of user IDs to invite to the room. Leave empty to create a room with just yourself.',
-  })
-  @IsArray()
-  members: string[];
-
-  @ApiProperty({ required: true, default: RoomType.PERSONAL })
-  @IsEnum(RoomType)
-  @ValidateIf((o) => o.type)
-  type: RoomType;
-
-  @ApiProperty({ required: false, description: 'AI instructions for the room' })
-  @IsString()
-  @IsOptional()
-  aiInstructions: string;
-
-  // AI Configuration fields
+export class UpdateRoomAiDto {
   @ApiProperty({
     enum: AiProvider,
     description: 'AI provider to use for this room',
     required: false,
-    default: AiProvider.GROQ,
   })
   @IsOptional()
   @IsEnum(AiProvider)
@@ -51,18 +22,26 @@ export class CreateRoomDto {
   @ApiProperty({
     description: 'AI model to use for this room',
     required: false,
-    default: 'llama3-70b-8192',
+    example: 'gpt-4o-mini',
   })
   @IsOptional()
   @IsString()
   ai_model?: string;
 
   @ApiProperty({
+    description: 'AI instructions for the room',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  ai_instructions?: string;
+
+  @ApiProperty({
     description: 'Temperature for AI responses (0.0 to 2.0)',
     required: false,
     minimum: 0,
     maximum: 2,
-    default: 0.7,
+    example: 0.7,
   })
   @IsOptional()
   @IsNumber()
@@ -75,7 +54,7 @@ export class CreateRoomDto {
     required: false,
     minimum: 1,
     maximum: 4000,
-    default: 1000,
+    example: 1000,
   })
   @IsOptional()
   @IsNumber()
@@ -88,7 +67,7 @@ export class CreateRoomDto {
     required: false,
     minimum: 0,
     maximum: 1,
-    default: 1.0,
+    example: 1.0,
   })
   @IsOptional()
   @IsNumber()
@@ -101,7 +80,7 @@ export class CreateRoomDto {
     required: false,
     minimum: -2,
     maximum: 2,
-    default: 0.0,
+    example: 0.0,
   })
   @IsOptional()
   @IsNumber()
@@ -114,7 +93,7 @@ export class CreateRoomDto {
     required: false,
     minimum: -2,
     maximum: 2,
-    default: 0.0,
+    example: 0.0,
   })
   @IsOptional()
   @IsNumber()

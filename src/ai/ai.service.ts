@@ -1,10 +1,15 @@
-import { PromptTemplate } from '@langchain/core/prompts';
-import { ChatGroq } from '@langchain/groq';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ConversationChain } from 'langchain/chains';
 import { BufferMemory } from 'langchain/memory';
 import { Client } from 'langsmith';
+import { AiProviderFactory } from './ai-provider.factory';
+import {
+  AiChatMessage,
+  AiProvider,
+  AiProviderConfig,
+  AVAILABLE_MODELS,
+  BaseAiProvider,
+} from './ai-provider.interface';
 
 // Phase 3: Memory configuration interface
 interface MemoryConfig {
@@ -34,7 +39,6 @@ interface MemoryAnalytics {
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
-  private readonly llm: ChatGroq;
 
   // Phase 1: Dual-layer memory system
   // Room-level memory for shared collaborative context (stories, discussions)
@@ -61,19 +65,11 @@ export class AiService {
   private readonly memoryConfig: MemoryConfig;
   private cleanupTimer: NodeJS.Timeout | null = null;
 
-  private readonly langsmithClient: Client;
+  private readonly langSmithClient: Client;
 
   constructor(private configService: ConfigService) {
-    // Initialize Groq LLM
-    this.llm = new ChatGroq({
-      model: 'llama3-70b-8192', // Fast model for chat
-      apiKey: this.configService.get<string>('GROQ_API_KEY'),
-      temperature: 0.7,
-      maxTokens: 1000,
-    });
-
     // Initialize LangSmith for tracing
-    this.langsmithClient = new Client({
+    this.langSmithClient = new Client({
       apiKey: this.configService.get<string>('LANGSMITH_API_KEY'),
       apiUrl: 'https://api.smith.langchain.com',
     });
@@ -95,8 +91,83 @@ export class AiService {
     this.startMemoryCleanup();
 
     this.logger.log(
-      'AI service initialized with Groq, LangSmith, and dual-layer memory system with Phase 3 optimizations',
+      'AI service initialized with multi-provider support and dual-layer memory system with Phase 3 optimizations',
     );
+  }
+
+  /**
+   * Create AI provider instance based on room configuration
+   * Enhanced with proper numeric type conversion to prevent API errors
+   */
+  private createAiProvider(roomConfig: {
+    ai_provider: AiProvider;
+    ai_model: string;
+    ai_temperature?: number;
+    ai_max_tokens?: number;
+    ai_top_p?: number;
+    ai_frequency_penalty?: number;
+    ai_presence_penalty?: number;
+  }): BaseAiProvider {
+    // Ensure all numeric values are properly converted to numbers
+    const temperature = roomConfig.ai_temperature
+      ? Number(roomConfig.ai_temperature)
+      : 0.7;
+    const maxTokens = roomConfig.ai_max_tokens
+      ? Number(roomConfig.ai_max_tokens)
+      : 1000;
+    const topP = roomConfig.ai_top_p ? Number(roomConfig.ai_top_p) : 1.0;
+    const frequencyPenalty = roomConfig.ai_frequency_penalty
+      ? Number(roomConfig.ai_frequency_penalty)
+      : 0.0;
+    const presencePenalty = roomConfig.ai_presence_penalty
+      ? Number(roomConfig.ai_presence_penalty)
+      : 0.0;
+
+    // Validate numeric ranges to prevent API errors
+    const validatedTemperature = Math.max(0.0, Math.min(2.0, temperature));
+    const validatedMaxTokens = Math.max(1, Math.min(4000, maxTokens));
+    const validatedTopP = Math.max(0.0, Math.min(1.0, topP));
+    const validatedFrequencyPenalty = Math.max(
+      -2.0,
+      Math.min(2.0, frequencyPenalty),
+    );
+    const validatedPresencePenalty = Math.max(
+      -2.0,
+      Math.min(2.0, presencePenalty),
+    );
+
+    const config: AiProviderConfig = {
+      provider: roomConfig.ai_provider,
+      model: roomConfig.ai_model,
+      apiKey: this.getApiKeyForProvider(roomConfig.ai_provider),
+      temperature: validatedTemperature,
+      maxTokens: validatedMaxTokens,
+      topP: validatedTopP,
+      frequencyPenalty: validatedFrequencyPenalty,
+      presencePenalty: validatedPresencePenalty,
+    };
+
+    this.logger.debug(
+      `Creating AI provider ${config.provider}/${config.model} with temperature: ${config.temperature} (type: ${typeof config.temperature})`,
+    );
+
+    return AiProviderFactory.createProvider(config);
+  }
+
+  /**
+   * Get API key for specific provider from environment variables
+   */
+  private getApiKeyForProvider(provider: AiProvider): string {
+    switch (provider) {
+      case AiProvider.OPENAI:
+        return this.configService.get<string>('OPENAI_API_KEY') || '';
+      case AiProvider.GEMINI:
+        return this.configService.get<string>('GEMINI_API_KEY') || '';
+      case AiProvider.GROQ:
+        return this.configService.get<string>('GROQ_API_KEY') || '';
+      default:
+        throw new Error(`No API key configured for provider: ${provider}`);
+    }
   }
 
   /**
@@ -474,38 +545,33 @@ export class AiService {
   }
 
   /**
-   * Phase 2: Create context-aware prompt based on conversation type and priority
+   * Create context-aware messages for AI providers
    */
-  private createContextAwarePrompt(
+  private createContextAwareMessages(
+    roomContext: string,
+    userContext: string,
     contextPriority: 'user' | 'room' | 'balanced',
     conversationType: 'personal' | 'collaborative' | 'mixed',
-  ): PromptTemplate {
+    aiInstructions: string,
+    username: string,
+    message: string,
+  ): AiChatMessage[] {
+    const messages: AiChatMessage[] = [];
+
+    // System message based on conversation type
+    let systemMessage = '';
+
     switch (conversationType) {
       case 'personal':
-        return this.createPersonalPrompt();
-      case 'collaborative':
-        return this.createCollaborativePrompt();
-      case 'mixed':
-        return this.createBalancedPrompt();
-      default:
-        return this.createBalancedPrompt();
-    }
-  }
+        systemMessage = `You are a helpful AI assistant in a chat room. Focus on the user's personal conversation history and questions.
 
-  /**
-   * Phase 2: Personal conversation prompt template
-   */
-  private createPersonalPrompt(): PromptTemplate {
-    return PromptTemplate.fromTemplate(`
-You are a helpful AI assistant in a chat room. Focus on the user's personal conversation history and questions.
-
-Room: {roomId} | User: {username} | Message: {input}
+Room: ${username} | Message: ${message}
 
 Personal conversation history:
-{userContext}
+${userContext}
 
 Room background (for reference):
-{roomContext}
+${roomContext}
 
 Instructions:
 - Answer based primarily on this user's personal history and context
@@ -514,25 +580,19 @@ Instructions:
 - Don't mention context headers, priorities, or system information
 - Don't repeat or reference the conversation history format in your response
 - Be natural and conversational
-- NEVER include phrases like "PERSONAL CONTEXT", "Priority: HIGH", or system formatting
 
-Response:`);
-  }
+${aiInstructions ? `Additional instructions: ${aiInstructions}` : ''}`;
+        break;
+      case 'collaborative':
+        systemMessage = `You are a helpful AI assistant facilitating collaborative work in a chat room.
 
-  /**
-   * Phase 2: Collaborative conversation prompt template
-   */
-  private createCollaborativePrompt(): PromptTemplate {
-    return PromptTemplate.fromTemplate(`
-You are a helpful AI assistant facilitating collaborative work in a chat room.
-
-Room: {roomId} | User: {username} | Message: {input}
+Room: ${username} | Message: ${message}
 
 Shared conversation history:
-{roomContext}
+${roomContext}
 
 User's background:
-{userContext}
+${userContext}
 
 Instructions:
 - Build upon the shared conversation and collaborative work
@@ -542,25 +602,19 @@ Instructions:
 - Don't mention context priorities, headers, or technical details
 - Don't repeat or reference the conversation history format in your response
 - Be natural and engaging
-- NEVER include phrases like "SHARED COLLABORATIVE CONTEXT", "Priority: HIGH", or system formatting
 
-Response:`);
-  }
+${aiInstructions ? `Additional instructions: ${aiInstructions}` : ''}`;
+        break;
+      case 'mixed':
+        systemMessage = `You are a helpful AI assistant in a chat room that handles both personal and collaborative conversations naturally.
 
-  /**
-   * Phase 2: Balanced conversation prompt template
-   */
-  private createBalancedPrompt(): PromptTemplate {
-    return PromptTemplate.fromTemplate(`
-You are a helpful AI assistant in a chat room that handles both personal and collaborative conversations naturally.
-
-Room: {roomId} | User: {username} | Message: {input}
+Room: ${username} | Message: ${message}
 
 Shared room conversation:
-{roomContext}
+${roomContext}
 
 User's personal conversation:
-{userContext}
+${userContext}
 
 Instructions:
 - Determine if the message is personal ("my question") or collaborative ("continue the story")
@@ -569,28 +623,48 @@ Instructions:
 - Don't expose system information, context headers, or technical details
 - Don't repeat or reference the conversation history format in your response
 - Be conversational and helpful
-- NEVER include phrases like "SHARED CONTEXT", "Priority", or system formatting
 
-Response:`);
+${aiInstructions ? `Additional instructions: ${aiInstructions}` : ''}`;
+        break;
+    }
+
+    messages.push({ role: 'system', content: systemMessage });
+    messages.push({ role: 'user', content: message });
+
+    return messages;
   }
 
   /**
    * Generate AI response for a user message in a specific room
-   * Phase 2: Enhanced with intelligent context routing and conversation type detection
-   * Phase 3: Enhanced with access tracking, analytics, and memory management
-   * Fixed: Always use user memory for chain to maintain proper user context
+   * Enhanced with multi-provider support and conversation history persistence
+   *
+   * IMPORTANT: Conversation history is stored by room ID, not by AI model.
+   * This ensures that when users switch AI models/providers for a room,
+   * the full conversation history is preserved and accessible to the new model.
    */
   async generateResponse(
     roomId: string,
     userId: string,
     username: string,
     message: string,
+    roomConfig: {
+      ai_provider: AiProvider;
+      ai_model: string;
+      ai_instructions?: string;
+      ai_temperature?: number;
+      ai_max_tokens?: number;
+      ai_top_p?: number;
+      ai_frequency_penalty?: number;
+      ai_presence_penalty?: number;
+    },
   ): Promise<string> {
     try {
       // Phase 3: Update access timestamps and enforce limits
       this.updateAccessTimestamps(roomId, userId);
       await this.enforceMemoryLimits();
 
+      // Get room and user memory - these are keyed by room ID only
+      // This ensures conversation history persists across AI model changes
       const roomMemory = this.getRoomMemory(roomId);
       const userMemory = this.getUserMemory(roomId, userId);
 
@@ -601,43 +675,49 @@ Response:`);
       // Phase 3: Update analytics
       this.conversationTypeStats[conversationType]++;
 
-      // Phase 2: Use appropriate prompt template based on conversation type
-      const prompt = this.createContextAwarePrompt(
+      // Create AI provider - this can change without affecting memory
+      const aiProvider = this.createAiProvider(roomConfig);
+
+      // Log AI provider switch if different from previous
+      this.logProviderSwitchIfNeeded(roomId, roomConfig);
+
+      // Create context-aware messages
+      const messages = this.createContextAwareMessages(
+        roomContext,
+        userContext,
         contextPriority,
         conversationType,
+        roomConfig.ai_instructions || '',
+        username,
+        message,
       );
 
-      // IMPROVED: Use ConversationChain with user memory for proper context tracking
-      // This ensures "what was my last question" works correctly per user
-      const chain = new ConversationChain({
-        llm: this.llm,
-        memory: userMemory, // Always user memory for proper user context
-        prompt: prompt,
-      });
+      // Generate response using the appropriate provider
+      // The provider gets access to full conversation history regardless of when it was created
+      const response = await aiProvider.generateResponse(messages);
 
-      // Generate response with enhanced context and conversation awareness
-      const response = await chain.predict({
-        input: message,
-        roomId: roomId,
-        userId: userId,
-        username: username,
-        roomContext: roomContext,
-        userContext: userContext,
-      });
-
-      // Phase 2: Enhanced memory saving with conversation type awareness
-      // Only save to room memory for collaborative content (user memory handled by chain)
+      // Save to memory based on conversation type
+      // Memory is always saved to preserve history for future model switches
       if (
         conversationType === 'collaborative' ||
         conversationType === 'mixed'
       ) {
-        await this.saveToRoomMemory(roomMemory, username, message, response);
+        await this.saveToRoomMemory(
+          roomMemory,
+          username,
+          message,
+          response.content,
+        );
       }
 
+      // Always save to user memory to maintain personal context
+      await this.saveToUserMemory(userMemory, message, response.content);
+
       this.logger.log(
-        `Generated AI response for room ${roomId}, user ${username} using ${conversationType} conversation type with ${contextPriority} priority`,
+        `Generated AI response for room ${roomId}, user ${username} using ${roomConfig.ai_provider}/${roomConfig.ai_model} with ${conversationType} conversation type and ${contextPriority} priority. History preserved across provider changes.`,
       );
-      return response;
+
+      return response.content;
     } catch (error) {
       this.logger.error(
         `Failed to generate AI response: ${error.message}`,
@@ -646,6 +726,40 @@ Response:`);
       return 'Sorry, I encountered an error while processing your message. Please try again.';
     }
   }
+
+  /**
+   * Log when AI provider/model changes for a room
+   * This helps track model switches while maintaining conversation history
+   */
+  private logProviderSwitchIfNeeded(
+    roomId: string,
+    roomConfig: {
+      ai_provider: AiProvider;
+      ai_model: string;
+    },
+  ): void {
+    // Store last used provider/model per room for comparison
+    const lastConfigKey = `room_${roomId}_last_config`;
+    const currentConfig = `${roomConfig.ai_provider}/${roomConfig.ai_model}`;
+
+    // Simple in-memory storage for last config (could be enhanced with Redis/DB)
+    if (!this.lastProviderConfigs) {
+      this.lastProviderConfigs = new Map();
+    }
+
+    const lastConfig = this.lastProviderConfigs.get(lastConfigKey);
+
+    if (lastConfig && lastConfig !== currentConfig) {
+      this.logger.log(
+        `🔄 AI provider switched for room ${roomId}: ${lastConfig} → ${currentConfig}. Conversation history preserved.`,
+      );
+    }
+
+    this.lastProviderConfigs.set(lastConfigKey, currentConfig);
+  }
+
+  // Add private property to track provider configs
+  private lastProviderConfigs: Map<string, string> = new Map();
 
   /**
    * Phase 1: Enhanced room memory saving for collaborative context
@@ -670,6 +784,28 @@ Response:`);
       );
     } catch (error) {
       this.logger.warn(`Failed to save to room memory: ${error.message}`);
+    }
+  }
+
+  /**
+   * Save to user memory for personal context
+   */
+  private async saveToUserMemory(
+    userMemory: BufferMemory,
+    userMessage: string,
+    aiResponse: string,
+  ): Promise<void> {
+    try {
+      const cleanResponse = aiResponse
+        .replace(/^(AI|Assistant):\s*/i, '')
+        .trim();
+
+      await userMemory.saveContext(
+        { input: userMessage },
+        { response: cleanResponse },
+      );
+    } catch (error) {
+      this.logger.warn(`Failed to save to user memory: ${error.message}`);
     }
   }
 
@@ -825,6 +961,20 @@ Response:`);
     this.conversationTypeStats.mixed = 0;
     this.lastCleanupTime = new Date();
     this.logger.log('Analytics counters reset');
+  }
+
+  /**
+   * Get available models for a specific provider
+   */
+  getAvailableModels(provider: AiProvider) {
+    return AVAILABLE_MODELS[provider] || [];
+  }
+
+  /**
+   * Get all available providers and their models
+   */
+  getAllAvailableModels() {
+    return AVAILABLE_MODELS;
   }
 
   /**

@@ -7,11 +7,15 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'crypto';
 import { Repository } from 'typeorm';
+import { AiProviderFactory } from '../ai/ai-provider.factory';
+import { AiProvider } from '../ai/ai-provider.interface';
+import { AiConfig } from '../ai/entities/ai-config.entity';
 import { User } from '../users/entities/user.entity';
 import { CreateInvitationDto } from './dto/create-invitation.dto';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { JoinRoomDto } from './dto/join-room.dto';
 import { UpdateInvitationDto } from './dto/update-invitation.dto';
+import { UpdateRoomAiDto } from './dto/update-room-ai.dto';
 import { Invitation, InvitationStatus } from './entities/invitation.entity';
 import { Room } from './entities/room.entity';
 
@@ -20,10 +24,14 @@ export class RoomsService {
   private readonly logger = new Logger(RoomsService.name);
 
   constructor(
-    @InjectRepository(Room) private roomRepository: Repository<Room>,
-    @InjectRepository(User) private userRepository: Repository<User>,
+    @InjectRepository(Room)
+    private roomRepository: Repository<Room>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
     @InjectRepository(Invitation)
     private invitationRepository: Repository<Invitation>,
+    @InjectRepository(AiConfig)
+    private aiConfigRepository: Repository<AiConfig>,
   ) {}
 
   async create(
@@ -69,18 +77,53 @@ export class RoomsService {
       this.logger.warn(`⚠️ Some members not found:`, missingMemberIds);
     }
 
+    // Create the room first
     const room = this.roomRepository.create({
-      ...createRoomDto,
+      name: createRoomDto.name,
+      type: createRoomDto.type,
       members: [...members, user], // Ensure current user is included
       ai_instructions: createRoomDto.aiInstructions,
     });
 
     const savedRoom = await this.roomRepository.save(room);
+
+    // Create AI configuration for the room
+    const aiProvider = createRoomDto.ai_provider || AiProvider.GROQ;
+    const defaultConfig = AiProviderFactory.getDefaultConfig(aiProvider);
+
+    const aiConfig = this.aiConfigRepository.create({
+      roomId: savedRoom.id,
+      provider: aiProvider,
+      model: createRoomDto.ai_model || defaultConfig.model || 'llama3-70b-8192',
+      instructions: createRoomDto.aiInstructions,
+      temperature:
+        createRoomDto.ai_temperature ?? defaultConfig.temperature ?? 0.7,
+      max_tokens:
+        createRoomDto.ai_max_tokens ?? defaultConfig.maxTokens ?? 1000,
+      top_p: createRoomDto.ai_top_p ?? defaultConfig.topP ?? 1.0,
+      frequency_penalty:
+        createRoomDto.ai_frequency_penalty ??
+        defaultConfig.frequencyPenalty ??
+        0.0,
+      presence_penalty:
+        createRoomDto.ai_presence_penalty ??
+        defaultConfig.presencePenalty ??
+        0.0,
+    });
+
+    await this.aiConfigRepository.save(aiConfig);
+
+    // Reload the room with its AI config
+    const roomWithConfig = await this.roomRepository.findOne({
+      where: { id: savedRoom.id },
+      relations: ['aiConfig'],
+    });
+
     this.logger.log(
-      `✅ Room "${savedRoom.name}" created with ${savedRoom.members.length} members`,
+      `✅ Room "${savedRoom.name}" created with ${savedRoom.members.length} members and AI provider ${aiConfig.provider}/${aiConfig.model}`,
     );
 
-    return savedRoom;
+    return roomWithConfig;
   }
 
   async getByRequest(userId: string) {
@@ -90,7 +133,7 @@ export class RoomsService {
           id: userId,
         },
       },
-      relations: ['members', 'messages'],
+      relations: ['members', 'messages', 'aiConfig'],
       order: {
         createdAt: 'DESC',
       },
@@ -98,6 +141,145 @@ export class RoomsService {
 
     this.logger.log(`📋 Found ${rooms.length} rooms for user`);
     return rooms;
+  }
+
+  async getById(roomId: string, userId: string) {
+    const room = await this.roomRepository.findOne({
+      where: { id: roomId },
+      relations: ['members', 'messages', 'aiConfig'],
+    });
+
+    if (!room) {
+      throw new NotFoundException('Room not found');
+    }
+
+    // Check if user is a member
+    const isMember = room.members.some((member) => member.id === userId);
+    if (!isMember) {
+      throw new NotFoundException('Room not found or access denied');
+    }
+
+    return room;
+  }
+
+  async updateAiConfig(
+    roomId: string,
+    userId: string,
+    updateRoomAiDto: UpdateRoomAiDto,
+  ) {
+    const room = await this.roomRepository.findOne({
+      where: { id: roomId },
+      relations: ['members', 'aiConfig'],
+    });
+
+    if (!room) {
+      throw new NotFoundException('Room not found');
+    }
+
+    // Check if user is a member
+    const isMember = room.members.some((member) => member.id === userId);
+    if (!isMember) {
+      throw new NotFoundException('Room not found or access denied');
+    }
+
+    // Update AI configuration
+    let aiConfig = room.aiConfig;
+
+    if (!aiConfig) {
+      // Create AI config if it doesn't exist
+      const defaultConfig = AiProviderFactory.getDefaultConfig(
+        updateRoomAiDto.ai_provider || AiProvider.GROQ,
+      );
+      aiConfig = this.aiConfigRepository.create({
+        roomId: roomId,
+        provider: updateRoomAiDto.ai_provider || AiProvider.GROQ,
+        model:
+          updateRoomAiDto.ai_model || defaultConfig.model || 'llama3-70b-8192',
+        instructions: updateRoomAiDto.ai_instructions,
+        temperature:
+          updateRoomAiDto.ai_temperature ?? defaultConfig.temperature ?? 0.7,
+        max_tokens:
+          updateRoomAiDto.ai_max_tokens ?? defaultConfig.maxTokens ?? 1000,
+        top_p: updateRoomAiDto.ai_top_p ?? defaultConfig.topP ?? 1.0,
+        frequency_penalty:
+          updateRoomAiDto.ai_frequency_penalty ??
+          defaultConfig.frequencyPenalty ??
+          0.0,
+        presence_penalty:
+          updateRoomAiDto.ai_presence_penalty ??
+          defaultConfig.presencePenalty ??
+          0.0,
+      });
+    } else {
+      // Update existing AI config
+      Object.assign(aiConfig, {
+        provider: updateRoomAiDto.ai_provider ?? aiConfig.provider,
+        model: updateRoomAiDto.ai_model ?? aiConfig.model,
+        instructions: updateRoomAiDto.ai_instructions ?? aiConfig.instructions,
+        temperature: updateRoomAiDto.ai_temperature ?? aiConfig.temperature,
+        max_tokens: updateRoomAiDto.ai_max_tokens ?? aiConfig.max_tokens,
+        top_p: updateRoomAiDto.ai_top_p ?? aiConfig.top_p,
+        frequency_penalty:
+          updateRoomAiDto.ai_frequency_penalty ?? aiConfig.frequency_penalty,
+        presence_penalty:
+          updateRoomAiDto.ai_presence_penalty ?? aiConfig.presence_penalty,
+      });
+    }
+
+    const updatedAiConfig = await this.aiConfigRepository.save(aiConfig);
+
+    this.logger.log(
+      `🤖 Updated AI config for room ${roomId}: ${updatedAiConfig.provider}/${updatedAiConfig.model}`,
+    );
+
+    // Return the room with updated AI config
+    return this.roomRepository.findOne({
+      where: { id: roomId },
+      relations: ['aiConfig'],
+    });
+  }
+
+  async getRoomAiConfig(roomId: string, userId: string) {
+    const room = await this.roomRepository.findOne({
+      where: { id: roomId },
+      relations: ['members', 'aiConfig'],
+    });
+
+    if (!room) {
+      throw new NotFoundException('Room not found');
+    }
+
+    // Check if user is a member
+    const isMember = room.members.some((member) => member.id === userId);
+    if (!isMember) {
+      throw new NotFoundException('Room not found or access denied');
+    }
+
+    if (!room.aiConfig) {
+      // Return default configuration if no AI config exists
+      const defaultConfig = AiProviderFactory.getDefaultConfig(AiProvider.GROQ);
+      return {
+        ai_provider: AiProvider.GROQ,
+        ai_model: defaultConfig.model || 'llama3-70b-8192',
+        ai_instructions: room.ai_instructions,
+        ai_temperature: defaultConfig.temperature || 0.7,
+        ai_max_tokens: defaultConfig.maxTokens || 1000,
+        ai_top_p: defaultConfig.topP || 1.0,
+        ai_frequency_penalty: defaultConfig.frequencyPenalty || 0.0,
+        ai_presence_penalty: defaultConfig.presencePenalty || 0.0,
+      };
+    }
+
+    return {
+      ai_provider: room.aiConfig.provider,
+      ai_model: room.aiConfig.model,
+      ai_instructions: room.aiConfig.instructions,
+      ai_temperature: room.aiConfig.temperature,
+      ai_max_tokens: room.aiConfig.max_tokens,
+      ai_top_p: room.aiConfig.top_p,
+      ai_frequency_penalty: room.aiConfig.frequency_penalty,
+      ai_presence_penalty: room.aiConfig.presence_penalty,
+    };
   }
 
   // Invitation methods
@@ -203,7 +385,7 @@ export class RoomsService {
     // Find the invitation
     const invitation = await this.invitationRepository.findOne({
       where: {
-        code: joinRoomDto.invitationCode,
+        code: joinRoomDto.code,
         status: InvitationStatus.PENDING,
       },
       relations: ['room', 'room.members'],

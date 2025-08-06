@@ -4,6 +4,7 @@ import {
   Get,
   Logger,
   Param,
+  ParseUUIDPipe,
   Post,
   Put,
   Query,
@@ -15,23 +16,24 @@ import {
   ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
+import { AiProvider } from 'src/ai/ai-provider.interface';
+import { AiService } from 'src/ai/ai.service';
 import { GetMessageDto } from 'src/messages/dto/get-message.dto';
 import { MessagesService } from 'src/messages/messages.service';
-import { CreateInvitationDto } from './dto/create-invitation.dto';
 import { CreateRoomDto } from './dto/create-room.dto';
-import { JoinRoomDto } from './dto/join-room.dto';
-import { UpdateInvitationDto } from './dto/update-invitation.dto';
+import { UpdateRoomAiDto } from './dto/update-room-ai.dto';
 import { RoomsService } from './rooms.service';
 
 @Controller('rooms')
-@ApiBearerAuth()
 @ApiTags('rooms')
+@ApiBearerAuth()
 export class RoomsController {
   private readonly logger = new Logger(RoomsController.name);
 
   constructor(
     private readonly roomsService: RoomsService,
     private readonly messagesService: MessagesService,
+    private readonly aiService: AiService,
   ) {}
 
   @Post()
@@ -40,13 +42,8 @@ export class RoomsController {
     const userEmail = req.authUser.email;
 
     this.logger.log(
-      `🏠 Creating room "${createRoomDto.name}" for ${userEmail} with ${createRoomDto.members?.length || 0} members`,
+      `🏠 Creating room "${createRoomDto.name}" for user ${userEmail}`,
     );
-
-    if (!userId) {
-      this.logger.error('❌ User ID not found in authentication data');
-      throw new Error('User ID not found in authentication data');
-    }
 
     try {
       const result = await this.roomsService.create(
@@ -60,14 +57,6 @@ export class RoomsController {
       );
       this.logger.log(`✅ Room created successfully: ${result.id}`);
 
-      if (createRoomDto.members.length > 0) {
-        createRoomDto.members.forEach((member) => {
-          this.roomsService.createInvitation(result.id, userId, {
-            email: member,
-          });
-        });
-      }
-
       return result;
     } catch (error) {
       this.logger.error(`❌ Room creation failed:`, error.message);
@@ -76,123 +65,88 @@ export class RoomsController {
   }
 
   @Get()
-  getByRequest(@Request() req) {
+  async getByRequest(@Request() req) {
     const userId = req.authUser.id;
 
-    if (!userId) {
-      throw new Error('User ID not found in authentication data');
-    }
+    this.logger.log(`📋 Getting rooms for user ${userId}`);
 
-    return this.roomsService.getByRequest(userId.toString());
+    return this.roomsService.getByRequest(userId);
+  }
+
+  @Get('ai/models')
+  @ApiOperation({ summary: 'Get all available AI models' })
+  async getAvailableModels() {
+    const models = this.aiService.getAllAvailableModels();
+    return {
+      providers: Object.values(AiProvider),
+      models: models,
+    };
+  }
+
+  @Get('ai/models/:provider')
+  @ApiOperation({ summary: 'Get available models for a specific provider' })
+  @ApiParam({ name: 'provider', enum: AiProvider })
+  async getProviderModels(@Param('provider') provider: AiProvider) {
+    const models = this.aiService.getAvailableModels(provider);
+    return {
+      provider,
+      models: models,
+    };
+  }
+
+  @Get(':id/ai')
+  @ApiOperation({ summary: 'Get AI configuration for a room' })
+  @ApiParam({ name: 'id', description: 'Room ID' })
+  async getRoomAiConfig(
+    @Param('id', ParseUUIDPipe) roomId: string,
+    @Request() req,
+  ) {
+    const userId = req.authUser.id;
+
+    this.logger.log(
+      `🤖 Getting AI config for room ${roomId} by user ${userId}`,
+    );
+
+    return this.roomsService.getRoomAiConfig(roomId, userId);
+  }
+
+  @Put(':id/ai')
+  @ApiParam({ name: 'id', description: 'Room ID' })
+  async updateRoomAiConfig(
+    @Param('id', ParseUUIDPipe) roomId: string,
+    @Body() updateRoomAiDto: UpdateRoomAiDto,
+    @Request() req,
+  ) {
+    const userId = req.authUser.id;
+
+    this.logger.log(
+      `🤖 Updating AI config for room ${roomId} by user ${userId}`,
+    );
+
+    return this.roomsService.updateAiConfig(roomId, userId, updateRoomAiDto);
+  }
+
+  @Get(':id')
+  @ApiParam({ name: 'id', description: 'Room ID' })
+  async getById(@Param('id', ParseUUIDPipe) roomId: string, @Request() req) {
+    const userId = req.authUser.id;
+
+    this.logger.log(`🔍 Getting room ${roomId} for user ${userId}`);
+
+    return this.roomsService.getById(roomId, userId);
   }
 
   @Get(':id/messages')
-  @ApiParam({ name: 'id', required: true })
-  getMessages(@Param('id') id, @Query() dto: GetMessageDto) {
-    return this.messagesService.findAll(id, new GetMessageDto(dto));
-  }
-
-  // Invitation endpoints
-
-  @Post(':id/invite')
-  @ApiOperation({ summary: 'Create an invitation for a room' })
-  @ApiParam({ name: 'id', required: true, description: 'Room ID' })
-  async createInvitation(
-    @Param('id') roomId: string,
+  @ApiParam({ name: 'id', description: 'Room ID' })
+  async getMessages(
+    @Param('id', ParseUUIDPipe) roomId: string,
+    @Query() getMessageDto: GetMessageDto,
     @Request() req,
-    @Body() createInvitationDto: CreateInvitationDto,
   ) {
     const userId = req.authUser.id;
 
-    if (!userId) {
-      throw new Error('User ID not found in authentication data');
-    }
+    this.logger.log(`💬 Getting messages for room ${roomId} by user ${userId}`);
 
-    this.logger.log(
-      `💌 Creating invitation for room ${roomId} by user ${req.authUser.email}`,
-    );
-
-    try {
-      const result = await this.roomsService.createInvitation(
-        roomId,
-        userId.toString(),
-        createInvitationDto,
-      );
-      this.logger.log(`✅ Invitation created successfully: ${result.code}`);
-      return result;
-    } catch (error) {
-      this.logger.error(`❌ Invitation creation failed:`, error.message);
-      throw error;
-    }
-  }
-
-  @Post('join')
-  @ApiOperation({ summary: 'Join a room using an invitation code' })
-  async joinRoom(@Request() req, @Body() joinRoomDto: JoinRoomDto) {
-    const userId = req.authUser.id;
-
-    if (!userId) {
-      throw new Error('User ID not found in authentication data');
-    }
-
-    this.logger.log(
-      `🚪 User ${req.authUser.email} attempting to join room with invitation code`,
-    );
-
-    try {
-      const result = await this.roomsService.joinRoom(
-        userId.toString(),
-        joinRoomDto,
-      );
-      this.logger.log(`✅ User successfully joined room: ${result.room.name}`);
-      return result;
-    } catch (error) {
-      this.logger.error(`❌ Room join failed:`, error.message);
-      throw error;
-    }
-  }
-
-  @Get('invitations')
-  @ApiOperation({ summary: 'Get pending invitations for the current user' })
-  async getInvitations(@Request() req) {
-    const userId = req.authUser.id;
-
-    if (!userId) {
-      throw new Error('User ID not found in authentication data');
-    }
-
-    return this.roomsService.getUserInvitations(userId.toString());
-  }
-
-  @Put('invitations/:id')
-  @ApiOperation({ summary: 'Accept or decline an invitation' })
-  @ApiParam({ name: 'id', required: true, description: 'Invitation ID' })
-  async updateInvitation(
-    @Param('id') invitationId: string,
-    @Request() req,
-    @Body() updateInvitationDto: UpdateInvitationDto,
-  ) {
-    const userId = req.authUser.id;
-
-    if (!userId) {
-      throw new Error('User ID not found in authentication data');
-    }
-
-    this.logger.log(
-      `📝 User ${req.authUser.email} updating invitation ${invitationId} to ${updateInvitationDto.status}`,
-    );
-
-    try {
-      const result = await this.roomsService.updateInvitation(
-        invitationId,
-        userId.toString(),
-        updateInvitationDto,
-      );
-      this.logger.log(`✅ Invitation updated successfully`);
-      return result;
-    } catch (error) {
-      this.logger.error(`❌ Invitation update failed:`, error.message);
-      throw error;
-    }
+    return this.messagesService.getByRoomId(roomId, userId, getMessageDto);
   }
 }

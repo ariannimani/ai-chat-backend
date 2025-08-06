@@ -7,5 +7,5 @@ export class JoinRoomDto {
   })
   @IsNotEmpty()
   @IsString()
-  invitationCode: string;
+  code: string;
 }
