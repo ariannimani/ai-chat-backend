@@ -120,7 +120,7 @@ export class MessagesService {
           roomId: room.id,
           provider: AiProvider.GROQ,
           model: defaultConfig.model || 'llama3-70b-8192',
-          instructions: room.ai_instructions,
+          instructions: room.aiConfig.instructions,
           temperature: defaultConfig.temperature || 0.7,
           max_tokens: defaultConfig.maxTokens || 1000,
           top_p: defaultConfig.topP || 1.0,

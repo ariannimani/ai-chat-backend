@@ -82,7 +82,6 @@ export class RoomsService {
       name: createRoomDto.name,
       type: createRoomDto.type,
       members: [...members, user], // Ensure current user is included
-      ai_instructions: createRoomDto.aiInstructions,
     });
 
     const savedRoom = await this.roomRepository.save(room);
@@ -261,7 +260,7 @@ export class RoomsService {
       return {
         ai_provider: AiProvider.GROQ,
         ai_model: defaultConfig.model || 'llama3-70b-8192',
-        ai_instructions: room.ai_instructions,
+        ai_instructions: room.aiConfig.instructions,
         ai_temperature: defaultConfig.temperature || 0.7,
         ai_max_tokens: defaultConfig.maxTokens || 1000,
         ai_top_p: defaultConfig.topP || 1.0,

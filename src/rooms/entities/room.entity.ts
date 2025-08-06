@@ -50,9 +50,6 @@ export class Room {
   @OneToMany(() => Invitation, (invitation) => invitation.room)
   invitations: Invitation[];
 
-  @Column({ nullable: true })
-  ai_instructions: string;
-
   // One-to-one relationship with AiConfig
   @OneToOne(() => AiConfig, (aiConfig) => aiConfig.room, {
     eager: true,
