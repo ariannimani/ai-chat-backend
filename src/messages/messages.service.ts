@@ -34,7 +34,6 @@ export class MessagesService {
 
   async create(senderId: string, createMessageDto: CreateMessageDto) {
     // Note: Room must exist in database before creating messages
-    console.log('createMessageDto', createMessageDto);
     const messageData = {
       id: createMessageDto.id,
       content: createMessageDto.content,
@@ -43,7 +42,6 @@ export class MessagesService {
       sender_type: 'user' as const, // This is a user message
     };
 
-    console.log('messageData', messageData);
     const message = this.messageRepository.create(messageData);
     const savedMessage = await this.messageRepository.save(message);
 

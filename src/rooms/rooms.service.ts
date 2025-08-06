@@ -135,6 +135,9 @@ export class RoomsService {
       relations: ['members', 'messages', 'aiConfig'],
       order: {
         createdAt: 'DESC',
+        messages: {
+          createdAt: 'ASC',
+        },
       },
     });
 
