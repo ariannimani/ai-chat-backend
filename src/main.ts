@@ -20,6 +20,8 @@ async function bootstrap() {
         'http://127.0.0.1:3001',
         'http://localhost:8080',
         'http://127.0.0.1:8080',
+        'https://ai-chat-backend-6qr3.onrender.com',
+        'https://ai-chat-backend-6qr3.onrender.com/8080',
       ];
 
       if (allowedOrigins.includes(origin)) {
