@@ -13,7 +13,7 @@ import { WsSupabaseAuthGuard } from 'src/config/guard/ws-jwt-auth.guard';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { MessagesService } from './messages.service';
 
-@WebSocketGateway(parseInt(process.env.WS_PORT) || 8080, {
+@WebSocketGateway({
   namespace: '/chat',
   cors: {
     origin: '*',
