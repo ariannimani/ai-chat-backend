@@ -1,4 +1,4 @@
-import OpenAI from 'openai';
+import { ChatOpenAI } from '@langchain/openai';
 import {
   AiChatMessage,
   AiModel,
@@ -10,13 +10,19 @@ import {
 } from '../ai-provider.interface';
 
 export class OpenAiProvider extends BaseAiProvider {
-  private client: OpenAI;
+  private client: ChatOpenAI;
 
   constructor(config: AiProviderConfig) {
     super(config);
-    this.client = new OpenAI({
-      apiKey: config.apiKey,
-      baseURL: config.baseUrl,
+    this.client = new ChatOpenAI({
+      openAIApiKey: config.apiKey,
+      modelName: config.model,
+      temperature: Number(config.temperature) || 0.7,
+      maxTokens: Number(config.maxTokens) || 1000,
+      topP: Number(config.topP) || 1.0,
+      frequencyPenalty: Number(config.frequencyPenalty) || 0.0,
+      presencePenalty: Number(config.presencePenalty) || 0.0,
+      configuration: config.baseUrl ? { baseURL: config.baseUrl } : undefined,
     });
   }
 
@@ -26,29 +32,46 @@ export class OpenAiProvider extends BaseAiProvider {
   ): Promise<AiResponse> {
     const mergedConfig = { ...this.config, ...options };
 
-    const response = await this.client.chat.completions.create({
-      model: mergedConfig.model,
-      messages: messages.map((msg) => ({
-        role: msg.role,
-        content: msg.content,
-      })),
-      temperature: mergedConfig.temperature,
-      max_tokens: mergedConfig.maxTokens,
-      top_p: mergedConfig.topP,
-      frequency_penalty: mergedConfig.frequencyPenalty,
-      presence_penalty: mergedConfig.presencePenalty,
+    // Update client if config changed - ensure numeric values
+    if (options) {
+      this.client = new ChatOpenAI({
+        openAIApiKey: mergedConfig.apiKey,
+        modelName: mergedConfig.model,
+        temperature: Number(mergedConfig.temperature) || 0.7,
+        maxTokens: Number(mergedConfig.maxTokens) || 1000,
+        topP: Number(mergedConfig.topP) || 1.0,
+        frequencyPenalty: Number(mergedConfig.frequencyPenalty) || 0.0,
+        presencePenalty: Number(mergedConfig.presencePenalty) || 0.0,
+        configuration: mergedConfig.baseUrl
+          ? { baseURL: mergedConfig.baseUrl }
+          : undefined,
+      });
+    }
+
+    // Convert to LangChain format
+    const langChainMessages = messages.map((msg) => {
+      switch (msg.role) {
+        case 'system':
+          return { role: 'system', content: msg.content };
+        case 'user':
+          return { role: 'human', content: msg.content };
+        case 'assistant':
+          return { role: 'assistant', content: msg.content };
+        default:
+          return { role: 'human', content: msg.content };
+      }
     });
 
+    const response = await this.client.invoke(langChainMessages);
+
     return {
-      content: response.choices[0]?.message?.content || '',
-      usage: response.usage
-        ? {
-            promptTokens: response.usage.prompt_tokens,
-            completionTokens: response.usage.completion_tokens,
-            totalTokens: response.usage.total_tokens,
-          }
-        : undefined,
-      model: response.model,
+      content: response.content as string,
+      usage: {
+        promptTokens: 0, // LangChain doesn't provide detailed usage
+        completionTokens: 0,
+        totalTokens: 0,
+      },
+      model: mergedConfig.model,
       provider: AiProvider.OPENAI,
     };
   }
@@ -59,24 +82,41 @@ export class OpenAiProvider extends BaseAiProvider {
   ): AsyncIterableIterator<string> {
     const mergedConfig = { ...this.config, ...options };
 
-    const stream = await this.client.chat.completions.create({
-      model: mergedConfig.model,
-      messages: messages.map((msg) => ({
-        role: msg.role,
-        content: msg.content,
-      })),
-      temperature: mergedConfig.temperature,
-      max_tokens: mergedConfig.maxTokens,
-      top_p: mergedConfig.topP,
-      frequency_penalty: mergedConfig.frequencyPenalty,
-      presence_penalty: mergedConfig.presencePenalty,
-      stream: true,
+    // Update client if config changed
+    if (options) {
+      this.client = new ChatOpenAI({
+        openAIApiKey: mergedConfig.apiKey,
+        modelName: mergedConfig.model,
+        temperature: Number(mergedConfig.temperature) || 0.7,
+        maxTokens: Number(mergedConfig.maxTokens) || 1000,
+        topP: Number(mergedConfig.topP) || 1.0,
+        frequencyPenalty: Number(mergedConfig.frequencyPenalty) || 0.0,
+        presencePenalty: Number(mergedConfig.presencePenalty) || 0.0,
+        configuration: mergedConfig.baseUrl
+          ? { baseURL: mergedConfig.baseUrl }
+          : undefined,
+      });
+    }
+
+    // Convert to LangChain format
+    const langChainMessages = messages.map((msg) => {
+      switch (msg.role) {
+        case 'system':
+          return { role: 'system', content: msg.content };
+        case 'user':
+          return { role: 'human', content: msg.content };
+        case 'assistant':
+          return { role: 'assistant', content: msg.content };
+        default:
+          return { role: 'human', content: msg.content };
+      }
     });
 
+    const stream = await this.client.stream(langChainMessages);
+
     for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content;
-      if (content) {
-        yield content;
+      if (chunk.content) {
+        yield chunk.content as string;
       }
     }
   }

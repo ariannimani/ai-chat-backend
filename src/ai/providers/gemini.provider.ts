@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import {
   AiChatMessage,
   AiModel,
@@ -10,12 +10,16 @@ import {
 } from '../ai-provider.interface';
 
 export class GeminiProvider extends BaseAiProvider {
-  private client: GoogleGenAI;
+  private client: ChatGoogleGenerativeAI;
 
   constructor(config: AiProviderConfig) {
     super(config);
-    this.client = new GoogleGenAI({
+    this.client = new ChatGoogleGenerativeAI({
       apiKey: config.apiKey,
+      model: config.model,
+      temperature: Number(config.temperature) || 0.7,
+      maxOutputTokens: Number(config.maxTokens) || 1000,
+      topP: Number(config.topP) || 1.0,
     });
   }
 
@@ -25,28 +29,40 @@ export class GeminiProvider extends BaseAiProvider {
   ): Promise<AiResponse> {
     const mergedConfig = { ...this.config, ...options };
 
-    // Convert messages to Gemini format
-    const contents = this.convertMessagesToGeminiFormat(messages);
+    // Update client if config changed - ensure numeric values
+    if (options) {
+      this.client = new ChatGoogleGenerativeAI({
+        apiKey: mergedConfig.apiKey,
+        model: mergedConfig.model,
+        temperature: Number(mergedConfig.temperature) || 0.7,
+        maxOutputTokens: Number(mergedConfig.maxTokens) || 1000,
+        topP: Number(mergedConfig.topP) || 1.0,
+      });
+    }
 
-    const response = await this.client.models.generateContent({
-      model: mergedConfig.model,
-      contents,
-      config: {
-        temperature: mergedConfig.temperature,
-        maxOutputTokens: mergedConfig.maxTokens,
-        topP: mergedConfig.topP,
-      },
+    // Convert to LangChain format
+    const langChainMessages = messages.map((msg) => {
+      switch (msg.role) {
+        case 'system':
+          return { role: 'system', content: msg.content };
+        case 'user':
+          return { role: 'human', content: msg.content };
+        case 'assistant':
+          return { role: 'assistant', content: msg.content };
+        default:
+          return { role: 'human', content: msg.content };
+      }
     });
 
+    const response = await this.client.invoke(langChainMessages);
+
     return {
-      content: response.text || '',
-      usage: response.usageMetadata
-        ? {
-            promptTokens: response.usageMetadata.promptTokenCount || 0,
-            completionTokens: response.usageMetadata.candidatesTokenCount || 0,
-            totalTokens: response.usageMetadata.totalTokenCount || 0,
-          }
-        : undefined,
+      content: response.content as string,
+      usage: {
+        promptTokens: 0, // LangChain doesn't provide detailed usage
+        completionTokens: 0,
+        totalTokens: 0,
+      },
       model: mergedConfig.model,
       provider: AiProvider.GEMINI,
     };
@@ -58,47 +74,38 @@ export class GeminiProvider extends BaseAiProvider {
   ): AsyncIterableIterator<string> {
     const mergedConfig = { ...this.config, ...options };
 
-    // Convert messages to Gemini format
-    const contents = this.convertMessagesToGeminiFormat(messages);
+    // Update client if config changed
+    if (options) {
+      this.client = new ChatGoogleGenerativeAI({
+        apiKey: mergedConfig.apiKey,
+        model: mergedConfig.model,
+        temperature: Number(mergedConfig.temperature) || 0.7,
+        maxOutputTokens: Number(mergedConfig.maxTokens) || 1000,
+        topP: Number(mergedConfig.topP) || 1.0,
+      });
+    }
 
-    const stream = await this.client.models.generateContentStream({
-      model: mergedConfig.model,
-      contents,
-      config: {
-        temperature: mergedConfig.temperature,
-        maxOutputTokens: mergedConfig.maxTokens,
-        topP: mergedConfig.topP,
-      },
+    // Convert to LangChain format
+    const langChainMessages = messages.map((msg) => {
+      switch (msg.role) {
+        case 'system':
+          return { role: 'system', content: msg.content };
+        case 'user':
+          return { role: 'human', content: msg.content };
+        case 'assistant':
+          return { role: 'assistant', content: msg.content };
+        default:
+          return { role: 'human', content: msg.content };
+      }
     });
 
+    const stream = await this.client.stream(langChainMessages);
+
     for await (const chunk of stream) {
-      if (chunk.text) {
-        yield chunk.text;
+      if (chunk.content) {
+        yield chunk.content as string;
       }
     }
-  }
-
-  private convertMessagesToGeminiFormat(messages: AiChatMessage[]): any {
-    // Gemini expects a different format - combine system message with first user message
-    // and convert to Gemini's content format
-    const systemMessage = messages.find((msg) => msg.role === 'system');
-    const nonSystemMessages = messages.filter((msg) => msg.role !== 'system');
-
-    if (nonSystemMessages.length === 0) {
-      return 'Hello';
-    }
-
-    // If there's a system message, prepend it to the first user message
-    if (systemMessage && nonSystemMessages[0]?.role === 'user') {
-      nonSystemMessages[0].content = `${systemMessage.content}\n\n${nonSystemMessages[0].content}`;
-    }
-
-    // Convert to Gemini format - for simple case, just return the latest user message
-    const lastUserMessage = nonSystemMessages
-      .filter((msg) => msg.role === 'user')
-      .pop();
-
-    return lastUserMessage?.content || 'Hello';
   }
 
   validateConfig(): boolean {

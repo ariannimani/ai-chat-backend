@@ -165,7 +165,7 @@ export const AVAILABLE_MODELS: Record<AiProvider, AiModel[]> = {
       supportsFunctionCalling: true,
       supportsVision: true,
       supportsStreaming: true,
-      enabled: false,
+      enabled: true,
     },
   ],
   [AiProvider.GROQ]: [
