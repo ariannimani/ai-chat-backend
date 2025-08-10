@@ -6,6 +6,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Put,
   Query,
   Request,
 } from '@nestjs/common';
@@ -20,6 +21,7 @@ import { AiService } from 'src/ai/ai.service';
 import { GetMessageDto } from 'src/messages/dto/get-message.dto';
 import { MessagesService } from 'src/messages/messages.service';
 import { CreateRoomDto } from './dto/create-room.dto';
+import { UpdateRoomAiDto } from './dto/update-room-ai.dto';
 import { RoomsService } from './rooms.service';
 
 @Controller('rooms')
@@ -93,6 +95,11 @@ export class RoomsController {
   }
 
   @Get(':id')
+  @ApiOperation({
+    summary: 'Get room details',
+    description:
+      'Get room information including members, messages, and AI configuration',
+  })
   @ApiParam({ name: 'id', description: 'Room ID' })
   async getById(@Param('id', ParseUUIDPipe) roomId: string, @Request() req) {
     const userId = req.authUser.id;
@@ -100,6 +107,41 @@ export class RoomsController {
     this.logger.log(`🔍 Getting room ${roomId} for user ${userId}`);
 
     return this.roomsService.getById(roomId, userId);
+  }
+
+  @Put(':id/ai')
+  @ApiOperation({
+    summary: 'Update room AI configuration',
+    description:
+      'Update the AI provider, model, and other settings for a room. Conversation history is preserved across model changes.',
+  })
+  @ApiParam({ name: 'id', description: 'Room ID' })
+  async updateRoomAiConfig(
+    @Param('id', ParseUUIDPipe) roomId: string,
+    @Body() updateRoomAiDto: UpdateRoomAiDto,
+    @Request() req,
+  ) {
+    const userId = req.authUser.id;
+    const userEmail = req.authUser.email;
+
+    this.logger.log(
+      `🔧 User ${userEmail} updating AI config for room ${roomId} to ${updateRoomAiDto.ai_provider}/${updateRoomAiDto.ai_model}`,
+    );
+
+    try {
+      const result = await this.roomsService.updateAiConfig(
+        roomId,
+        userId,
+        updateRoomAiDto,
+      );
+      this.logger.log(
+        `✅ AI configuration updated successfully for room ${roomId}`,
+      );
+      return result;
+    } catch (error) {
+      this.logger.error(`❌ AI configuration update failed:`, error.message);
+      throw error;
+    }
   }
 
   @Get(':id/messages')
