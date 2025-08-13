@@ -2,14 +2,17 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
   JoinTable,
   ManyToMany,
+  ManyToOne,
   OneToMany,
   OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { AiConfig } from '../../ai/entities/ai-config.entity';
+import { RoomAttachment } from '../../attachments/entities/room-attachment.entity';
 import { Message } from '../../messages/entities/message.entity';
 import { User } from '../../users/entities/user.entity';
 import { RoomType } from '../enums/room-type.enum';
@@ -44,11 +47,20 @@ export class Room {
   })
   members: User[];
 
+  @ManyToOne(() => User, { eager: true })
+  @JoinColumn({ name: 'admin_id' })
+  admin: User;
+
   @OneToMany(() => Message, (message) => message.room)
   messages: Message[];
 
   @OneToMany(() => Invitation, (invitation) => invitation.room)
   invitations: Invitation[];
+
+  @OneToMany(() => RoomAttachment, (attachment) => attachment.room, {
+    cascade: true,
+  })
+  roomAttachments: RoomAttachment[];
 
   // One-to-one relationship with AiConfig
   @OneToOne(() => AiConfig, (aiConfig) => aiConfig.room, {

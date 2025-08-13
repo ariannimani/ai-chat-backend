@@ -3,10 +3,12 @@ import {
   CreateDateColumn,
   Entity,
   JoinColumn,
+  OneToMany,
   OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { AiAttachment } from '../../attachments/entities/ai-attachment.entity';
 import { Room } from '../../rooms/entities/room.entity';
 import { AiProvider } from '../ai-provider.interface';
 
@@ -83,6 +85,13 @@ export class AiConfig {
   @Column({ name: 'room_id' })
   roomId: string;
 
+  // One-to-many relationship with AI Attachments
+  @OneToMany(() => AiAttachment, (attachment) => attachment.aiConfig, {
+    cascade: true,
+    eager: true,
+  })
+  attachments: AiAttachment[];
+
   @CreateDateColumn()
   createdAt: Date;
 
@@ -104,6 +113,7 @@ export class AiConfig {
       ai_presence_penalty: this.presence_penalty
         ? Number(this.presence_penalty)
         : undefined,
+      attachments: this.attachments || [],
     };
   }
 }

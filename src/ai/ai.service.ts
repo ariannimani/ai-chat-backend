@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BufferMemory } from 'langchain/memory';
 import { Client } from 'langsmith';
+import { AiAttachmentService } from '../attachments/services/ai-attachment.service';
 import { AiProviderFactory } from './ai-provider.factory';
 import {
   AiChatMessage,
@@ -67,7 +68,10 @@ export class AiService {
 
   private readonly langSmithClient: Client;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private aiAttachmentService: AiAttachmentService,
+  ) {
     // Initialize LangSmith for tracing
     this.langSmithClient = new Client({
       apiKey: this.configService.get<string>('LANGSMITH_API_KEY'),
@@ -545,7 +549,21 @@ export class AiService {
   }
 
   /**
-   * Create context-aware messages for AI providers
+   * Read AI config attachments and return their content as context
+   */
+  private async readAiConfigAttachments(roomId: string): Promise<string> {
+    try {
+      return await this.aiAttachmentService.getAiAttachmentsContent(roomId);
+    } catch (error) {
+      this.logger.error(
+        `Error reading AI config attachments for room ${roomId}: ${error.message}`,
+      );
+      return '';
+    }
+  }
+
+  /**
+   * Create context-aware messages for AI providers with attachment context
    */
   private createContextAwareMessages(
     roomContext: string,
@@ -553,6 +571,7 @@ export class AiService {
     contextPriority: 'user' | 'room' | 'balanced',
     conversationType: 'personal' | 'collaborative' | 'mixed',
     aiInstructions: string,
+    attachmentContext: string,
     username: string,
     message: string,
   ): AiChatMessage[] {
@@ -573,8 +592,11 @@ ${userContext}
 Room background (for reference):
 ${roomContext}
 
+${attachmentContext}
+
 Instructions:
 - Answer based primarily on this user's personal history and context
+- Use the attachment content as additional context and reference material
 - Use their personal conversation when they ask "my last question", "what did I ask", etc.
 - Keep responses personal and direct, without exposing internal system details
 - Don't mention context headers, priorities, or system information
@@ -584,45 +606,57 @@ Instructions:
 ${aiInstructions ? `Additional instructions: ${aiInstructions}` : ''}`;
         break;
       case 'collaborative':
-        systemMessage = `You are a helpful AI assistant facilitating collaborative work in a chat room.
+        systemMessage = `You are a helpful AI assistant facilitating group conversation in a chat room. Focus on the shared room context and collaborative discussion.
 
 Room: ${username} | Message: ${message}
 
-Shared conversation history:
+Room conversation history:
 ${roomContext}
 
-User's background:
+User background (for reference):
 ${userContext}
 
+${attachmentContext}
+
 Instructions:
-- Build upon the shared conversation and collaborative work
-- Continue stories, discussions, or group work naturally
-- Acknowledge contributions from multiple users when relevant
-- Maintain conversation flow without exposing system internals
-- Don't mention context priorities, headers, or technical details
+- Answer based primarily on the room's shared conversation and context
+- Use the attachment content as additional context and reference material
+- When users refer to "our discussion", "what we talked about", use room context
+- Facilitate group discussion and build on shared topics
+- Keep responses collaborative and inclusive
+- Don't mention context headers, priorities, or system information
 - Don't repeat or reference the conversation history format in your response
-- Be natural and engaging
+- Be natural and conversational
 
 ${aiInstructions ? `Additional instructions: ${aiInstructions}` : ''}`;
         break;
       case 'mixed':
-        systemMessage = `You are a helpful AI assistant in a chat room that handles both personal and collaborative conversations naturally.
+        const priorityContext =
+          contextPriority === 'user' ? userContext : roomContext;
+        const secondaryContext =
+          contextPriority === 'user' ? roomContext : userContext;
+
+        systemMessage = `You are a helpful AI assistant in a chat room. Balance both personal and group context appropriately.
 
 Room: ${username} | Message: ${message}
 
-Shared room conversation:
-${roomContext}
+Primary context (${contextPriority === 'user' ? 'Personal' : 'Room'}):
+${priorityContext}
 
-User's personal conversation:
-${userContext}
+Secondary context (${contextPriority === 'user' ? 'Room' : 'Personal'}):
+${secondaryContext}
+
+${attachmentContext}
 
 Instructions:
-- Determine if the message is personal ("my question") or collaborative ("continue the story")
-- Use the appropriate context based on what the user is asking
-- Maintain natural conversation flow
-- Don't expose system information, context headers, or technical details
+- Balance both personal and room context in your responses
+- Use the attachment content as additional context and reference material
+- Prioritize ${contextPriority === 'user' ? 'personal' : 'room'} context when there's ambiguity
+- Be contextually aware of both individual and group dynamics
+- Keep responses natural and appropriate to the conversation flow
+- Don't mention context headers, priorities, or system information
 - Don't repeat or reference the conversation history format in your response
-- Be conversational and helpful
+- Be natural and conversational
 
 ${aiInstructions ? `Additional instructions: ${aiInstructions}` : ''}`;
         break;
@@ -681,6 +715,9 @@ ${aiInstructions ? `Additional instructions: ${aiInstructions}` : ''}`;
       // Log AI provider switch if different from previous
       this.logProviderSwitchIfNeeded(roomId, roomConfig);
 
+      // Read AI config attachments for context
+      const attachmentContext = await this.readAiConfigAttachments(roomId);
+
       // Create context-aware messages
       const messages = this.createContextAwareMessages(
         roomContext,
@@ -688,6 +725,7 @@ ${aiInstructions ? `Additional instructions: ${aiInstructions}` : ''}`;
         contextPriority,
         conversationType,
         roomConfig.ai_instructions || '',
+        attachmentContext,
         username,
         message,
       );

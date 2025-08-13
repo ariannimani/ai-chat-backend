@@ -82,6 +82,7 @@ export class RoomsService {
       name: createRoomDto.name,
       type: createRoomDto.type,
       members: [...members, user], // Ensure current user is included
+      admin: user, // Set the creator as admin
     });
 
     const savedRoom = await this.roomRepository.save(room);
@@ -115,11 +116,11 @@ export class RoomsService {
     // Reload the room with its AI config
     const roomWithConfig = await this.roomRepository.findOne({
       where: { id: savedRoom.id },
-      relations: ['aiConfig'],
+      relations: ['aiConfig', 'admin'],
     });
 
     this.logger.log(
-      `✅ Room "${savedRoom.name}" created with ${savedRoom.members.length} members and AI provider ${aiConfig.provider}/${aiConfig.model}`,
+      `✅ Room "${savedRoom.name}" created with ${savedRoom.members.length} members and AI provider ${aiConfig.provider}/${aiConfig.model}. Admin: ${user.email}`,
     );
 
     return roomWithConfig;
@@ -132,7 +133,13 @@ export class RoomsService {
           id: userId,
         },
       },
-      relations: ['members', 'messages', 'aiConfig'],
+      relations: [
+        'members',
+        'messages',
+        'aiConfig',
+        'aiConfig.attachments',
+        'admin',
+      ],
       order: {
         createdAt: 'DESC',
         messages: {
@@ -148,7 +155,13 @@ export class RoomsService {
   async getById(roomId: string, userId: string) {
     const room = await this.roomRepository.findOne({
       where: { id: roomId },
-      relations: ['members', 'messages', 'aiConfig'],
+      relations: [
+        'members',
+        'messages',
+        'aiConfig',
+        'aiConfig.attachments',
+        'admin',
+      ],
     });
 
     if (!room) {
@@ -171,7 +184,7 @@ export class RoomsService {
   ) {
     const room = await this.roomRepository.findOne({
       where: { id: roomId },
-      relations: ['members', 'aiConfig'],
+      relations: ['members', 'aiConfig', 'admin'],
     });
 
     if (!room) {
@@ -237,14 +250,14 @@ export class RoomsService {
     // Return the room with updated AI config
     return this.roomRepository.findOne({
       where: { id: roomId },
-      relations: ['aiConfig'],
+      relations: ['aiConfig', 'admin'],
     });
   }
 
   async getRoomAiConfig(roomId: string, userId: string) {
     const room = await this.roomRepository.findOne({
       where: { id: roomId },
-      relations: ['members', 'aiConfig'],
+      relations: ['members', 'aiConfig', 'admin'],
     });
 
     if (!room) {
