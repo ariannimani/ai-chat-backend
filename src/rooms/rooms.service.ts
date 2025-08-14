@@ -162,6 +162,7 @@ export class RoomsService {
         'aiConfig.attachments',
         'admin',
       ],
+      cache: false, // Disable caching to ensure fresh AI config data
     });
 
     if (!room) {
@@ -195,6 +196,29 @@ export class RoomsService {
     const isMember = room.members.some((member) => member.id === userId);
     if (!isMember) {
       throw new NotFoundException('Room not found or access denied');
+    }
+
+    // Auto-detect provider from model if not explicitly provided
+    if (updateRoomAiDto.ai_model && !updateRoomAiDto.ai_provider) {
+      updateRoomAiDto.ai_provider = this.detectProviderFromModel(
+        updateRoomAiDto.ai_model,
+      );
+      this.logger.log(
+        `🔄 Auto-detected provider '${updateRoomAiDto.ai_provider}' for model '${updateRoomAiDto.ai_model}'`,
+      );
+    }
+
+    // Validate provider-model compatibility if both are provided
+    if (updateRoomAiDto.ai_provider && updateRoomAiDto.ai_model) {
+      const detectedProvider = this.detectProviderFromModel(
+        updateRoomAiDto.ai_model,
+      );
+      if (detectedProvider !== updateRoomAiDto.ai_provider) {
+        this.logger.warn(
+          `⚠️ Provider mismatch: model '${updateRoomAiDto.ai_model}' belongs to '${detectedProvider}' but '${updateRoomAiDto.ai_provider}' was specified. Correcting provider.`,
+        );
+        updateRoomAiDto.ai_provider = detectedProvider;
+      }
     }
 
     // Update AI configuration
@@ -247,10 +271,20 @@ export class RoomsService {
       `🤖 Updated AI config for room ${roomId}: ${updatedAiConfig.provider}/${updatedAiConfig.model}`,
     );
 
-    // Return the room with updated AI config
+    // Verify the save by reading back from database
+    const verifyConfig = await this.aiConfigRepository.findOne({
+      where: { roomId: roomId },
+    });
+
+    this.logger.log(
+      `✅ Verified AI config in database: ${verifyConfig?.provider}/${verifyConfig?.model}`,
+    );
+
+    // Return the room with updated AI config (force fresh read)
     return this.roomRepository.findOne({
       where: { id: roomId },
       relations: ['aiConfig', 'admin'],
+      cache: false, // Disable caching to ensure fresh data
     });
   }
 
@@ -590,5 +624,36 @@ export class RoomsService {
 
   private generateInvitationCode(): string {
     return randomBytes(16).toString('hex');
+  }
+
+  /**
+   * Auto-detect AI provider from model name
+   * This ensures that when users only specify a model, we set the correct provider
+   */
+  private detectProviderFromModel(model: string): AiProvider {
+    // OpenAI models
+    if (model.startsWith('gpt-') || model.startsWith('o1-')) {
+      return AiProvider.OPENAI;
+    }
+
+    // Gemini models
+    if (model.startsWith('gemini-')) {
+      return AiProvider.GEMINI;
+    }
+
+    // Groq models (Llama, Mixtral, Gemma)
+    if (
+      model.startsWith('llama') ||
+      model.startsWith('mixtral') ||
+      model.startsWith('gemma')
+    ) {
+      return AiProvider.GROQ;
+    }
+
+    // Default fallback
+    this.logger.warn(
+      `⚠️ Could not detect provider for model '${model}', defaulting to GROQ`,
+    );
+    return AiProvider.GROQ;
   }
 }

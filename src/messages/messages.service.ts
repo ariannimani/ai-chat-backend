@@ -94,10 +94,11 @@ export class MessagesService {
         return null;
       }
 
-      // Get room and its AI configuration
+      // Get room and its AI configuration (force fresh read from database)
       const room = await this.roomRepository.findOne({
         where: { id: userMessage.room_id },
         relations: ['aiConfig'],
+        cache: false, // Disable caching to ensure fresh data
       });
 
       if (!room) {
@@ -106,6 +107,11 @@ export class MessagesService {
       }
 
       let aiConfig = room.aiConfig;
+
+      // Debug: Log what AI config we actually loaded
+      this.logger.log(
+        `🔍 Loaded AI config for room ${userMessage.room_id}: ${aiConfig ? `${aiConfig.provider}/${aiConfig.model}` : 'null'}`,
+      );
 
       // Create default AI config if it doesn't exist
       if (!aiConfig) {
@@ -131,12 +137,23 @@ export class MessagesService {
 
       // Generate AI response using the AI service with room's AI configuration
       // The AI service will maintain conversation history regardless of model changes
+      const roomConfig = aiConfig.toRoomConfig();
+
+      // Debug: Log the exact config being used
+      this.logger.log(
+        `🔧 Using AI config for room ${userMessage.room_id}: ${JSON.stringify({
+          provider: roomConfig.ai_provider,
+          model: roomConfig.ai_model,
+          temperature: roomConfig.ai_temperature,
+        })}`,
+      );
+
       const aiResponseText = await this.aiService.generateResponse(
         userMessage.room_id,
         user.id,
         user.username,
         userMessage.content,
-        aiConfig.toRoomConfig(), // Convert AiConfig to the expected format
+        roomConfig, // Convert AiConfig to the expected format
       );
 
       // Create AI response message
