@@ -41,8 +41,8 @@ import { User } from './users/entities/user.entity';
         AiAttachment,
         RoomAttachment,
       ],
-      // Development: auto-sync for quick iteration
-      synchronize: process.env.NODE_ENV === 'development',
+      // Development: use migrations for controlled schema changes
+      synchronize: true,
       // Production: use migrations for controlled schema changes
       migrations: ['dist/migrations/*.js'],
       migrationsRun: process.env.NODE_ENV === 'production',

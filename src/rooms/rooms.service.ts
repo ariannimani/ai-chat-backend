@@ -49,9 +49,7 @@ export class RoomsService {
         id: userId,
         email: userInfo.email,
         name: userInfo.name,
-        username: userInfo.email, // Use email as username for auto-created users
-        password: 'supabase-auth', // Placeholder since we use Supabase for auth
-        password_key: 'supabase-auth', // Placeholder since we use Supabase for auth
+        username: userInfo.email,
       });
 
       user = await this.userRepository.save(user);

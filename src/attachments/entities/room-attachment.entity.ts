@@ -1,4 +1,4 @@
-import { Entity, JoinColumn, ManyToOne } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 import { Room } from '../../rooms/entities/room.entity';
 import { BaseAttachment } from './base-attachment.entity';
 
@@ -8,5 +8,6 @@ export class RoomAttachment extends BaseAttachment {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'room_id' })
+  @Column({ type: 'uuid', name: 'room_id' })
   room: Room;
 }

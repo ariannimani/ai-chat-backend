@@ -13,22 +13,22 @@ export abstract class BaseAttachment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'text' })
   filename: string;
 
-  @Column()
+  @Column({ type: 'text' })
   originalName: string;
 
-  @Column()
+  @Column({ type: 'text' })
   mimeType: string;
 
   @Column({ type: 'bigint' })
   size: number;
 
-  @Column()
+  @Column({ type: 'text' })
   storagePath: string;
 
-  @Column()
+  @Column({ type: 'text' })
   storageUrl: string;
 
   @Column({
@@ -37,7 +37,7 @@ export abstract class BaseAttachment {
   })
   type: AttachmentType;
 
-  @Column({ nullable: true })
+  @Column({ type: 'text', nullable: true })
   description: string;
 
   @Column()
@@ -50,9 +50,9 @@ export abstract class BaseAttachment {
   @Column({ name: 'uploaded_by_id' })
   uploadedById: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt: Date;
 }

@@ -6,7 +6,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 export class SupabaseStrategy extends PassportStrategy(Strategy, 'supabase') {
   constructor() {
     const jwtSecret = process.env.SUPABASE_JWT_SECRET;
-    
+
     if (!jwtSecret) {
       console.error('SUPABASE_JWT_SECRET is not defined!');
       throw new Error('SUPABASE_JWT_SECRET environment variable is required');

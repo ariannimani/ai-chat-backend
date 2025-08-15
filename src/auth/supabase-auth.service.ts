@@ -9,6 +9,7 @@ export class SupabaseAuthService {
 
   // Sign up with Supabase Auth (alternative to existing JWT auth)
   async signUpWithSupabase(email: string, password: string, metadata?: any) {
+    console.log({ email, password, metadata });
     try {
       const supabase = this.supabaseService.getClient();
       const { data, error } = await supabase.auth.signUp({

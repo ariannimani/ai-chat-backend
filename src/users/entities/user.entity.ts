@@ -11,27 +11,21 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'text', nullable: true })
   name: string;
 
-  @Column({ unique: true })
+  @Column({ type: 'text', unique: true, nullable: true })
   username: string;
 
-  @Column({ unique: true })
+  @Column({ type: 'text', unique: true })
   email: string;
 
-  @Column({ nullable: true, unique: true })
+  @Column({ type: 'text', nullable: true, unique: true })
   supabase_user_id: string;
 
-  @Column({ select: false })
-  password: string;
-
-  @Column({ select: false })
-  password_key: string;
-
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt: Date;
 }

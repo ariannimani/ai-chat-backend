@@ -6,7 +6,6 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RegisterAuthDto } from '../auth/dto/register-auth.dto';
-import { PasswordHashHelper } from '../helper/hash/password-hash.helper';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
 
@@ -17,12 +16,9 @@ export class UsersService {
   ) {}
 
   async create(dto: RegisterAuthDto) {
-    const passwordGenerator = await PasswordHashHelper.hash(dto.password);
-
     const userData = {
       ...dto,
-      password: passwordGenerator.hash,
-      password_key: passwordGenerator.passKey,
+      username: dto.username || this.generateUniqueUsername(),
     };
 
     try {
@@ -36,11 +32,9 @@ export class UsersService {
   async createWithSupabaseId(supabaseUserId: string, dto: RegisterAuthDto) {
     const userData = {
       name: dto.name,
-      username: dto.username,
+      username: dto.username || this.generateUniqueUsername(),
       email: dto.email,
-      supabase_user_id: supabaseUserId, // Store Supabase user ID separately
-      password: 'supabase-auth', // Placeholder since Supabase handles auth
-      password_key: 'supabase-auth', // Placeholder since Supabase handles auth
+      id: supabaseUserId,
     };
 
     try {
@@ -57,32 +51,13 @@ export class UsersService {
     });
   }
 
-  async validateUser(email: string, password: string) {
+  async validateUser(email: string) {
     const user = await this.userRepository.findOne({
       where: { email },
-      select: [
-        'id',
-        'name',
-        'username',
-        'email',
-        'password',
-        'password_key',
-        'createdAt',
-        'updatedAt',
-      ],
+      select: ['id', 'name', 'username', 'email', 'createdAt', 'updatedAt'],
     });
 
     if (!user) {
-      throw new NotFoundException('Could not find user.');
-    }
-
-    const isPasswordCorrect = await PasswordHashHelper.comparePassword(
-      password,
-      user.password_key,
-      user.password,
-    );
-
-    if (!isPasswordCorrect) {
       throw new NotFoundException('Could not find user.');
     }
 
@@ -116,5 +91,24 @@ export class UsersService {
       message: 'User updated successfully',
       data: updatedUser,
     };
+  }
+
+  private generateUniqueUsername(): string {
+    // Generate a random username using a simple algorithm
+    const adjectives = [
+      'brave',
+      'clever',
+      'happy',
+      'swift',
+      'bright',
+      'kind',
+      'bold',
+    ];
+    const nouns = ['tiger', 'eagle', 'wolf', 'fox', 'bear', 'lion', 'hawk'];
+    const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+    const noun = nouns[Math.floor(Math.random() * nouns.length)];
+    const number = Math.floor(Math.random() * 9999) + 1;
+
+    return `${adjective}_${noun}_${number}`;
   }
 }

@@ -30,15 +30,21 @@ export class AuthService {
   }
 
   async register(dto: RegisterAuthDto) {
+    // Generate username if not provided
+    const username = dto.username || this.generateUniqueUsername();
+    console.log({ username });
+
     // Step 1: Create user in Supabase Auth
     const supabaseResult = await this.supabaseAuthService.signUpWithSupabase(
       dto.email,
       dto.password,
       {
-        name: dto.name,
-        username: dto.username,
+        name: dto.name || null,
+        username: username,
       },
     );
+
+    console.log({ supabaseResult });
 
     // // Step 2: Create user in local database with Supabase user ID
     // if (supabaseResult.user?.id) {
@@ -93,5 +99,24 @@ export class AuthService {
 
   async signOut() {
     return await this.supabaseAuthService.signOut();
+  }
+
+  private generateUniqueUsername(): string {
+    // Generate a random username using a simple algorithm
+    const adjectives = [
+      'brave',
+      'clever',
+      'happy',
+      'swift',
+      'bright',
+      'kind',
+      'bold',
+    ];
+    const nouns = ['tiger', 'eagle', 'wolf', 'fox', 'bear', 'lion', 'hawk'];
+    const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+    const noun = nouns[Math.floor(Math.random() * nouns.length)];
+    const number = Math.floor(Math.random() * 9999) + 1;
+
+    return `${adjective}_${noun}_${number}`;
   }
 }

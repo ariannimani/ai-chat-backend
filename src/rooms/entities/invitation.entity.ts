@@ -22,7 +22,7 @@ export class Invitation {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true })
+  @Column({ type: 'text', unique: true })
   code: string;
 
   @Column({
@@ -32,11 +32,12 @@ export class Invitation {
   })
   status: InvitationStatus;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   expiresAt: Date;
 
   @ManyToOne(() => Room, { eager: true })
   @JoinColumn({ name: 'room_id' })
+  @Column({ type: 'uuid', name: 'room_id' })
   room: Room;
 
   @ManyToOne(() => User, { eager: true })
@@ -47,12 +48,12 @@ export class Invitation {
   @JoinColumn({ name: 'invited_user_id' })
   invitedUser: User;
 
-  @Column({ nullable: true })
+  @Column({ type: 'text', nullable: true })
   invitedEmail: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt: Date;
 }

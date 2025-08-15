@@ -23,7 +23,7 @@ export class Room {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'text', nullable: true })
   name: string;
 
   @Column({
@@ -69,9 +69,9 @@ export class Room {
   })
   aiConfig: AiConfig;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt: Date;
 }

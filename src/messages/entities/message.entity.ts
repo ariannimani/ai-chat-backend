@@ -15,7 +15,7 @@ export class Message {
   @PrimaryColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'text' })
   content: string;
 
   @Column({ type: 'enum', enum: ['user', 'ai', 'system'] })
@@ -32,12 +32,12 @@ export class Message {
   @JoinColumn({ name: 'room_id' })
   room: Room;
 
-  @Column()
+  @Column({ type: 'uuid', name: 'room_id' })
   room_id: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt: Date;
 }

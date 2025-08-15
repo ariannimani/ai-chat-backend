@@ -26,12 +26,13 @@ export class AiConfig {
   provider: AiProvider;
 
   @Column({
+    type: 'text',
     default: 'llama3-70b-8192',
     nullable: false,
   })
   model: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'text', nullable: true })
   instructions: string;
 
   @Column({
@@ -82,7 +83,7 @@ export class AiConfig {
   @JoinColumn({ name: 'room_id' })
   room: Room;
 
-  @Column({ name: 'room_id' })
+  @Column({ type: 'uuid', name: 'room_id' })
   roomId: string;
 
   // One-to-many relationship with AI Attachments
@@ -92,10 +93,10 @@ export class AiConfig {
   })
   attachments: AiAttachment[];
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt: Date;
 
   // Helper method to convert to room config format
