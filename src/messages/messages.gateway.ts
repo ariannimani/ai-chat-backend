@@ -39,9 +39,7 @@ export class MessagesGateway
 
   handleConnection(client: Socket) {
     try {
-      this.logger.log(
-        `Client connected: ${client.id} from ${client.handshake.address}`,
-      );
+      // Client connected
       // No authentication during connection - it happens per-message
       client.emit('connection-success', {
         message: 'Connected to message server',
@@ -58,7 +56,7 @@ export class MessagesGateway
   }
 
   handleDisconnect(client: Socket) {
-    this.logger.log(`Client disconnected: ${client.id}`);
+    // Client disconnected
   }
 
   @SubscribeMessage('join-room')
@@ -68,7 +66,7 @@ export class MessagesGateway
     @MessageBody() data: { roomId: string },
   ) {
     client.join(`room:${data.roomId}`);
-    this.logger.log(`Client ${client.id} joined room: room:${data.roomId}`);
+    // Client joined room
     client.emit('joined-room', { roomId: data.roomId });
   }
 
@@ -79,7 +77,7 @@ export class MessagesGateway
     @MessageBody() data: { roomId: string },
   ) {
     client.leave(`room:${data.roomId}`);
-    this.logger.log(`Client ${client.id} left room: room:${data.roomId}`);
+    // Client left room
     client.emit('left-room', { roomId: data.roomId });
   }
 
@@ -95,7 +93,7 @@ export class MessagesGateway
       return;
     }
 
-    this.logger.log(`${user.email} is typing in room ${data.roomId}`);
+    // User typing in room
 
     // Broadcast to all clients in the room except the sender
     this.server.to(`room:${data.roomId}`).emit('user-typing', {
@@ -117,9 +115,7 @@ export class MessagesGateway
       return;
     }
 
-    this.logger.log(
-      `${user.user_metadata.name || user.email} is stop typing in room ${data.roomId}`,
-    );
+    // User stopped typing
 
     // Broadcast to all clients in the room except the sender
     this.server.to(`room:${data.roomId}`).emit('user-stopped-typing', {
@@ -138,8 +134,7 @@ export class MessagesGateway
       const user = (client.handshake as any).user;
       const senderId = user?.id;
 
-      this.logger.debug(`WebSocket user object:`, user);
-      this.logger.debug(`Extracted sender ID: ${senderId}`);
+      // WebSocket message from authenticated user
 
       if (!senderId) {
         this.logger.error(
@@ -154,9 +149,7 @@ export class MessagesGateway
 
       await this.messagesService.create(senderId, createMessageDto);
 
-      this.logger.log(
-        `Message sent to room ${createMessageDto.room_id} by user ${senderId}`,
-      );
+      // Message sent to room
     } catch (error) {
       this.logger.error(`Error creating message: ${error.message}`);
       client.emit('message-error', {
@@ -175,7 +168,7 @@ export class MessagesGateway
       ...aiResponse,
       messageType: 'ai',
     });
-    this.logger.log(`AI response broadcast to room: ${roomId}`);
+    // AI response broadcast to room
   }
 
   broadcastUserMessage(roomId: string, senderId: string, userMessage: any) {
@@ -185,10 +178,10 @@ export class MessagesGateway
       senderId,
     });
 
-    this.logger.log(`User message broadcast to room: ${roomId}`);
+    // User message broadcast to room
   }
 
   afterInit() {
-    this.logger.log('WebSocket server initialized');
+    // WebSocket server initialized
   }
 }

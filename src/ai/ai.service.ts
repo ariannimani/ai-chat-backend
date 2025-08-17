@@ -5,10 +5,10 @@ import { Client } from 'langsmith';
 import { AiAttachmentService } from '../attachments/services/ai-attachment.service';
 import { AiProviderFactory } from './ai-provider.factory';
 import {
+  AVAILABLE_MODELS,
   AiChatMessage,
   AiProvider,
   AiProviderConfig,
-  AVAILABLE_MODELS,
   BaseAiProvider,
 } from './ai-provider.interface';
 
@@ -94,9 +94,7 @@ export class AiService {
     // Phase 3: Start cleanup timer
     this.startMemoryCleanup();
 
-    this.logger.log(
-      'AI service initialized with multi-provider support and dual-layer memory system with Phase 3 optimizations',
-    );
+    // AI service initialized
   }
 
   /**
@@ -151,9 +149,7 @@ export class AiService {
       presencePenalty: validatedPresencePenalty,
     };
 
-    this.logger.debug(
-      `Creating AI provider ${config.provider}/${config.model} with temperature: ${config.temperature} (type: ${typeof config.temperature})`,
-    );
+    // Creating AI provider
 
     return AiProviderFactory.createProvider(config);
   }
@@ -319,7 +315,7 @@ export class AiService {
         returnMessages: false,
       });
       this.roomMemories.set(roomId, memory);
-      this.logger.log(`Created new shared room memory for room: ${roomId}`);
+      // Created new shared room memory
     }
     return this.roomMemories.get(roomId);
   }
@@ -345,9 +341,8 @@ export class AiService {
         returnMessages: false,
       });
       roomUserMemories.set(userId, userMemory);
-      this.logger.log(
-        `Created new user memory for user ${userId} in room: ${roomId}`,
-      );
+      // User memory created (debug only if needed)
+      // this.logger.debug(`Created user memory for ${userId} in room ${roomId}`);
     }
 
     return roomUserMemories.get(userId);
@@ -361,7 +356,7 @@ export class AiService {
     roomMemory: BufferMemory,
     userMemory: BufferMemory,
     currentMessage: string,
-    _username: string,
+    _userEmail: string,
   ): Promise<{
     roomContext: string;
     userContext: string;
@@ -403,17 +398,26 @@ export class AiService {
     roomContext: string,
     _userContext: string,
   ): 'personal' | 'collaborative' | 'mixed' {
-    const lowerMessage = message.toLowerCase();
+    // Remove @ai prefix and normalize the message
+    const cleanMessage = message
+      .toLowerCase()
+      .replace(/^@ai\s*/, '')
+      .trim();
 
     // Personal question indicators
     const personalIndicators = [
       'my last question',
       'what did i ask',
+      'what was my last question',
+      'what was my last',
       'my previous request',
+      'my previous question',
       'remind me what i',
       'what was i asking',
       'my question was',
       'i asked about',
+      'what did i say',
+      'what did i tell',
     ];
 
     // Collaborative indicators
@@ -443,15 +447,15 @@ export class AiService {
     ];
 
     const hasPersonalIndicators = personalIndicators.some((indicator) =>
-      lowerMessage.includes(indicator),
+      cleanMessage.includes(indicator),
     );
 
     const hasCollaborativeIndicators = collaborativeIndicators.some(
-      (indicator) => lowerMessage.includes(indicator),
+      (indicator) => cleanMessage.includes(indicator),
     );
 
     const hasOthersWorkIndicators = othersWorkIndicators.some((indicator) =>
-      lowerMessage.includes(indicator),
+      cleanMessage.includes(indicator),
     );
 
     // Determine conversation type
@@ -572,7 +576,7 @@ export class AiService {
     conversationType: 'personal' | 'collaborative' | 'mixed',
     aiInstructions: string,
     attachmentContext: string,
-    username: string,
+    userEmail: string,
     message: string,
   ): AiChatMessage[] {
     const messages: AiChatMessage[] = [];
@@ -584,7 +588,7 @@ export class AiService {
       case 'personal':
         systemMessage = `You are a helpful AI assistant in a chat room. Focus on the user's personal conversation history and questions.
 
-Room: ${username} | Message: ${message}
+Room: ${userEmail} | Message: ${message}
 
 Personal conversation history:
 ${userContext}
@@ -608,7 +612,7 @@ ${aiInstructions ? `Additional instructions: ${aiInstructions}` : ''}`;
       case 'collaborative':
         systemMessage = `You are a helpful AI assistant facilitating group conversation in a chat room. Focus on the shared room context and collaborative discussion.
 
-Room: ${username} | Message: ${message}
+Room: ${userEmail} | Message: ${message}
 
 Room conversation history:
 ${roomContext}
@@ -638,7 +642,7 @@ ${aiInstructions ? `Additional instructions: ${aiInstructions}` : ''}`;
 
         systemMessage = `You are a helpful AI assistant in a chat room. Balance both personal and group context appropriately.
 
-Room: ${username} | Message: ${message}
+Room: ${userEmail} | Message: ${message}
 
 Primary context (${contextPriority === 'user' ? 'Personal' : 'Room'}):
 ${priorityContext}
@@ -679,7 +683,7 @@ ${aiInstructions ? `Additional instructions: ${aiInstructions}` : ''}`;
   async generateResponse(
     roomId: string,
     userId: string,
-    username: string,
+    userEmail: string,
     message: string,
     roomConfig: {
       ai_provider: AiProvider;
@@ -704,7 +708,7 @@ ${aiInstructions ? `Additional instructions: ${aiInstructions}` : ''}`;
 
       // Phase 2: Enhanced context combination with intelligence
       const { roomContext, userContext, contextPriority, conversationType } =
-        await this.combineContexts(roomMemory, userMemory, message, username);
+        await this.combineContexts(roomMemory, userMemory, message, userEmail);
 
       // Phase 3: Update analytics
       this.conversationTypeStats[conversationType]++;
@@ -726,7 +730,7 @@ ${aiInstructions ? `Additional instructions: ${aiInstructions}` : ''}`;
         conversationType,
         roomConfig.ai_instructions || '',
         attachmentContext,
-        username,
+        userEmail,
         message,
       );
 
@@ -742,7 +746,7 @@ ${aiInstructions ? `Additional instructions: ${aiInstructions}` : ''}`;
       ) {
         await this.saveToRoomMemory(
           roomMemory,
-          username,
+          userEmail,
           message,
           response.content,
         );
@@ -750,10 +754,6 @@ ${aiInstructions ? `Additional instructions: ${aiInstructions}` : ''}`;
 
       // Always save to user memory to maintain personal context
       await this.saveToUserMemory(userMemory, message, response.content);
-
-      this.logger.log(
-        `Generated AI response for room ${roomId}, user ${username} using ${roomConfig.ai_provider}/${roomConfig.ai_model} with ${conversationType} conversation type and ${contextPriority} priority. History preserved across provider changes.`,
-      );
 
       return response.content;
     } catch (error) {
@@ -805,13 +805,13 @@ ${aiInstructions ? `Additional instructions: ${aiInstructions}` : ''}`;
    */
   private async saveToRoomMemory(
     roomMemory: BufferMemory,
-    username: string,
+    userEmail: string,
     userMessage: string,
     aiResponse: string,
   ): Promise<void> {
     try {
       // Use cleaner formatting for room memory - avoid technical formatting
-      const roomInput = `User ${username} said: ${userMessage}`;
+      const roomInput = `User ${userEmail} said: ${userMessage}`;
       const cleanResponse = aiResponse
         .replace(/^(AI|Assistant):\s*/i, '')
         .trim();
@@ -855,12 +855,9 @@ ${aiInstructions ? `Additional instructions: ${aiInstructions}` : ''}`;
   clearRoomMemory(roomId: string): void {
     this.roomMemories.delete(roomId);
     this.roomLastAccess.delete(roomId);
-    this.logger.log(`Cleared shared room memory for room: ${roomId}`);
 
-    // Clear user-specific memories for the room
     this.userMemories.delete(roomId);
     this.userLastAccess.delete(roomId);
-    this.logger.log(`Cleared all user memories for room: ${roomId}`);
   }
 
   /**

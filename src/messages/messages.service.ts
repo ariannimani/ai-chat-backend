@@ -108,14 +108,11 @@ export class MessagesService {
 
       let aiConfig = room.aiConfig;
 
-      // Debug: Log what AI config we actually loaded
-      this.logger.log(
-        `🔍 Loaded AI config for room ${userMessage.room_id}: ${aiConfig ? `${aiConfig.provider}/${aiConfig.model}` : 'null'}`,
-      );
+      // AI config loaded for room
 
       // Create default AI config if it doesn't exist
       if (!aiConfig) {
-        this.logger.log(`Creating default AI config for room ${room.id}`);
+        // Creating default AI config for room
         const defaultConfig = AiProviderFactory.getDefaultConfig(
           AiProvider.GROQ,
         );
@@ -139,19 +136,10 @@ export class MessagesService {
       // The AI service will maintain conversation history regardless of model changes
       const roomConfig = aiConfig.toRoomConfig();
 
-      // Debug: Log the exact config being used
-      this.logger.log(
-        `🔧 Using AI config for room ${userMessage.room_id}: ${JSON.stringify({
-          provider: roomConfig.ai_provider,
-          model: roomConfig.ai_model,
-          temperature: roomConfig.ai_temperature,
-        })}`,
-      );
-
       const aiResponseText = await this.aiService.generateResponse(
         userMessage.room_id,
         user.id,
-        user.username,
+        user.email,
         userMessage.content,
         roomConfig, // Convert AiConfig to the expected format
       );
@@ -198,9 +186,7 @@ export class MessagesService {
         );
       }
 
-      this.logger.log(
-        `✅ Generated AI response for message ${userMessage.id} in room ${userMessage.room_id} using ${aiConfig.provider}/${aiConfig.model}`,
-      );
+      // Generated AI response successfully
 
       return savedAiMessage;
     } catch (error) {
