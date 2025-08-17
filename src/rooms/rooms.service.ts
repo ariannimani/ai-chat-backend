@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'crypto';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { AiProviderFactory } from '../ai/ai-provider.factory';
 import { AiProvider } from '../ai/ai-provider.interface';
 import { AiConfig } from '../ai/entities/ai-config.entity';
@@ -60,8 +60,15 @@ export class RoomsService {
       );
     }
 
+    const existingMembers = await this.userRepository.find({
+      where: {
+        email: In(createRoomDto.members),
+      },
+      select: ['id'],
+    });
+
     // Combine provided member IDs with current user ID
-    const memberIds = [...(createRoomDto.members || []), user.id].filter(
+    const memberIds = [...existingMembers.map((m) => m.id), user.id].filter(
       Boolean,
     );
     const members = await this.userRepository.findByIds(memberIds);
