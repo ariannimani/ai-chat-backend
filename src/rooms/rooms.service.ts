@@ -405,8 +405,6 @@ export class RoomsService {
     // Generate unique invitation code
     const code = this.generateInvitationCode();
 
-    console.log({ code });
-
     // Set expiration time
     const expirationHours = createInvitationDto.expirationHours || 24;
     const expiresAt = new Date();
