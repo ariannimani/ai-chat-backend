@@ -713,4 +713,27 @@ export class RoomsService {
     );
     return AiProvider.GROQ;
   }
+
+  async leave(userId: string, roomId: string) {
+    const room = await this.roomRepository.findOne({
+      where: { id: roomId },
+      relations: ['members'],
+    });
+
+    const member = room.members.find((member) => member.id === userId);
+
+    if (!member) {
+      throw new NotFoundException('You are not a member of this room');
+    }
+
+    room.members = room.members.filter((member) => member.id !== userId);
+    await this.roomRepository.save(room);
+
+    this.logger.log(`✅ User ${userId} left room "${room.name}"`);
+
+    return {
+      message: 'Successfully left room',
+      room,
+    };
+  }
 }

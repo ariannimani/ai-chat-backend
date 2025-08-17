@@ -157,4 +157,26 @@ export class RoomsController {
 
     return this.messagesService.getByRoomId(roomId, userId, getMessageDto);
   }
+
+  @Post(':id/leave')
+  @ApiOperation({
+    summary: 'Leave a room',
+    description: 'Remove yourself from a room you are a member of',
+  })
+  @ApiParam({ name: 'id', description: 'Room ID' })
+  async leave(@Param('id', ParseUUIDPipe) roomId: string, @Request() req) {
+    const userId = req.authUser.id;
+    const userEmail = req.authUser.email;
+
+    this.logger.log(`👋 User ${userEmail} leaving room ${roomId}`);
+
+    try {
+      const result = await this.roomsService.leave(userId.toString(), roomId);
+      this.logger.log(`✅ User successfully left room: ${result.room.name}`);
+      return result;
+    } catch (error) {
+      this.logger.error(`❌ Leave room failed:`, error.message);
+      throw error;
+    }
+  }
 }
