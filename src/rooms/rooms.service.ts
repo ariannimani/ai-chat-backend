@@ -71,6 +71,7 @@ export class RoomsService {
     const memberIds = [...existingMembers.map((m) => m.id), user.id].filter(
       Boolean,
     );
+
     const members = await this.userRepository.findByIds(memberIds);
 
     // Check if any members were not found
@@ -86,11 +87,15 @@ export class RoomsService {
     const room = this.roomRepository.create({
       name: createRoomDto.name,
       type: createRoomDto.type,
-      members: [...members, user], // Ensure current user is included
+      members: [user],
       admin: user, // Set the creator as admin
     });
 
     const savedRoom = await this.roomRepository.save(room);
+
+    await this.createInvitation(savedRoom.id, userId, {
+      members: createRoomDto.members,
+    });
 
     // Create AI configuration for the room
     const aiProvider = createRoomDto.ai_provider || AiProvider.GROQ;
@@ -353,11 +358,6 @@ export class RoomsService {
       throw new NotFoundException('Room not found');
     }
 
-    const isMember = room.members.some((member) => member.id === userId);
-    if (!isMember) {
-      throw new BadRequestException('Only room members can create invitations');
-    }
-
     // Find the inviting user
     const invitingUser = await this.userRepository.findOne({
       where: { id: userId },
@@ -367,73 +367,124 @@ export class RoomsService {
       throw new NotFoundException('User not found');
     }
 
-    let invitedUser = null;
-    let invitedEmail = createInvitationDto.email;
+    // Collect all emails and userIds to invite
+    const invitedEmails: string[] = Array.isArray(createInvitationDto.members)
+      ? [...createInvitationDto.members]
+      : [];
 
-    // If userId is provided, find the user and get their email
+    const invitedUserIds: string[] = [];
     if (createInvitationDto.userId) {
-      invitedUser = await this.userRepository.findOne({
-        where: { id: createInvitationDto.userId },
-      });
+      invitedUserIds.push(createInvitationDto.userId);
+    }
 
-      if (!invitedUser) {
-        throw new NotFoundException('Invited user not found');
-      }
-
-      invitedEmail = invitedUser.email;
-
-      // Check if user is already a member
-      const isAlreadyMember = room.members.some(
-        (member) => member.id === invitedUser.id,
-      );
-
-      if (isAlreadyMember) {
-        throw new BadRequestException('User is already a member of this room');
+    // Find all invited users by userId
+    let invitedUsers: User[] = [];
+    if (invitedUserIds.length > 0) {
+      invitedUsers = await this.userRepository.findByIds(invitedUserIds);
+      // Add their emails to invitedEmails if not already present
+      for (const user of invitedUsers) {
+        if (user.email && !invitedEmails.includes(user.email)) {
+          invitedEmails.push(user.email);
+        }
       }
     }
 
-    // Check for existing pending invitation
-    const existingInvitation = await this.invitationRepository.findOne({
-      where: {
-        room: { id: roomId },
-        status: InvitationStatus.PENDING,
-        ...(invitedUser
-          ? { invitedUser: { id: invitedUser.id } }
-          : { invitedEmail }),
-      },
+    // Remove duplicates from invitedEmails
+    const uniqueInvitedEmails = Array.from(new Set(invitedEmails));
+
+    // Check if any invited users are already members
+    for (const user of invitedUsers) {
+      if (room.members.some((member) => member.id === user.id)) {
+        this.logger.warn(`User ${user.email} is already a member of this room`);
+      }
+    }
+
+    // Check if any invited emails are already members
+    for (const email of uniqueInvitedEmails) {
+      if (room.members.some((member) => member.email === email)) {
+        this.logger.warn(
+          `User with email ${email} is already a member of this room`,
+        );
+      }
+    }
+
+    // Check for existing pending invitations for these users/emails
+    const existingInvitations = await this.invitationRepository.find({
+      where: [
+        // By userId
+        ...invitedUsers.map((user) => ({
+          room: { id: roomId },
+          status: InvitationStatus.PENDING,
+          invitedUser: { id: user.id },
+        })),
+        // By email
+        ...uniqueInvitedEmails.map((email) => ({
+          room: { id: roomId },
+          status: InvitationStatus.PENDING,
+          invitedEmail: email,
+        })),
+      ],
     });
 
-    if (existingInvitation) {
-      throw new BadRequestException(
-        'A pending invitation already exists for this user',
+    if (existingInvitations.length > 0) {
+      this.logger.warn(
+        `A pending invitation already exists for one or more of these users`,
       );
     }
 
-    // Generate unique invitation code
-    const code = this.generateInvitationCode();
-
-    // Set expiration time
+    // Generate unique invitation codes and create invitations for each user/email
     const expirationHours = createInvitationDto.expirationHours || 24;
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + expirationHours);
 
-    // Create invitation
-    const invitation = this.invitationRepository.create({
-      code,
-      room,
-      invitedBy: invitingUser,
-      invitedUser,
-      invitedEmail,
-      expiresAt,
-    });
+    const invitationsToSave: Invitation[] = [];
+    const code = this.generateInvitationCode();
 
-    const savedInvitation = await this.invitationRepository.save(invitation);
+    // Invitations for userIds
+    for (const user of invitedUsers) {
+      const invitation = this.invitationRepository.create({
+        code,
+        room,
+        invitedBy: invitingUser,
+        invitedUser: user,
+        invitedEmail: user.email,
+        expiresAt,
+      });
+      invitationsToSave.push(invitation);
+    }
+
+    // Invitations for emails not already covered by userIds
+    const userEmails = invitedUsers.map((u) => u.email);
+
+    for (const email of uniqueInvitedEmails) {
+      if (!userEmails.includes(email)) {
+        const invitation = this.invitationRepository.create({
+          code,
+          room,
+          invitedBy: invitingUser,
+          invitedUser: null,
+          invitedEmail: email,
+          expiresAt,
+        });
+        invitationsToSave.push(invitation);
+      }
+    }
+
+    const savedInvitations =
+      await this.invitationRepository.save(invitationsToSave);
 
     this.logger.log(
-      `💌 Invitation created for room "${room.name}" by ${invitingUser.email}`,
+      `💌 Invitations created for room "${room.name}" by ${invitingUser.email} for: ${[
+        ...invitedUsers.map((u) => u.email),
+        ...uniqueInvitedEmails.filter((email) => !userEmails.includes(email)),
+      ].join(', ')}`,
     );
 
-    return savedInvitation;
+    return {
+      message: 'Invitations created successfully',
+      invitations: savedInvitations,
+      code,
+    };
   }
 
   async joinRoom(userId: string, joinRoomDto: JoinRoomDto) {

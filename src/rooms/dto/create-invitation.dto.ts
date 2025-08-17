@@ -1,15 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsOptional, IsString, Validate } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 
 export class CreateInvitationDto {
   @ApiProperty({
     required: false,
     description:
-      'Email of the user to invite (optional if user is already registered)',
+      'Emails of the users to invite (optional if user is already registered)',
   })
   @IsOptional()
-  @Validate((value) => value === '' || IsEmail(value))
-  email?: string;
+  members?: string[];
 
   @ApiProperty({
     required: false,

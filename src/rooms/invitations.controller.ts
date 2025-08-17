@@ -56,10 +56,10 @@ export class InvitationsController {
         userId.toString(),
         createInvitationDto,
       );
-      this.logger.log(`✅ Invitation created successfully: ${result.code}`);
+      this.logger.log(`✅ Invitations created successfully: ${result.code}`);
       return result;
     } catch (error) {
-      this.logger.error(`❌ Invitation creation failed:`, error.message);
+      this.logger.error(`❌ Invitations creation failed:`, error.message);
       throw error;
     }
   }

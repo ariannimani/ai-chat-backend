@@ -22,7 +22,7 @@ export class Invitation {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'text', unique: true })
+  @Column({ type: 'text' })
   code: string;
 
   @Column({
