@@ -95,13 +95,11 @@ export class MessagesGateway
       return;
     }
 
-    this.logger.log(
-      `${user.user_metadata.name || user.email} is typing in room ${data.roomId}`,
-    );
+    this.logger.log(`${user.email} is typing in room ${data.roomId}`);
 
     // Broadcast to all clients in the room except the sender
     this.server.to(`room:${data.roomId}`).emit('user-typing', {
-      username: user.user_metadata.name || user.email,
+      email: user.email,
       userId: user.id,
       roomId: data.roomId,
     });
