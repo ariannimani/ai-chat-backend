@@ -4,6 +4,7 @@ import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CommandModule } from 'nestjs-command';
 import { AiModule } from './ai/ai.module';
+import { AppController } from './app.controller';
 import { AttachmentsModule } from './attachments/attachments.module';
 import { AuthModule } from './auth/auth.module';
 import { MessagesModule } from './messages/messages.module';
@@ -61,6 +62,7 @@ import { User } from './users/entities/user.entity';
     RoomsModule,
     MessagesModule,
   ],
+  controllers: [AppController],
   providers: [
     {
       provide: APP_GUARD,
