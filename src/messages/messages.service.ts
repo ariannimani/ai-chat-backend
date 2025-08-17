@@ -45,13 +45,19 @@ export class MessagesService {
     const message = this.messageRepository.create(messageData);
     const savedMessage = await this.messageRepository.save(message);
 
+    // Get user details for WebSocket broadcast
+    const user = await this.usersService.findOne(senderId);
+
     // Optional: Publish to Supabase realtime for additional real-time features
     try {
       const supabase = this.supabaseService.getClient();
       await supabase.channel(`room:${createMessageDto.room_id}`).send({
         type: 'broadcast',
         event: 'new_message',
-        payload: savedMessage,
+        payload: {
+          ...savedMessage,
+          sender: user ? { id: user.id, email: user.email } : null,
+        },
       });
     } catch (error) {
       this.logger.warn(
@@ -63,8 +69,8 @@ export class MessagesService {
     if (this.messagesGateway) {
       this.messagesGateway.broadcastUserMessage(
         createMessageDto.room_id,
-        senderId,
         savedMessage,
+        user,
       );
     }
 
@@ -156,12 +162,16 @@ export class MessagesService {
       const aiMessage = this.messageRepository.create(aiMessageData);
       const savedAiMessage = await this.messageRepository.save(aiMessage);
 
+      // Get user details for AI response broadcast
+      const aiUser = await this.usersService.findOne(savedAiMessage.sender_id);
+
       // Broadcast AI response via WebSocket Gateway
       if (this.messagesGateway) {
         try {
           this.messagesGateway.broadcastAiResponse(
             userMessage.room_id,
             savedAiMessage,
+            aiUser,
           );
         } catch (error) {
           this.logger.warn(
@@ -177,7 +187,10 @@ export class MessagesService {
         await supabase.channel(`room:${userMessage.room_id}`).send({
           type: 'broadcast',
           event: 'ai_response',
-          payload: savedAiMessage,
+          payload: {
+            ...savedAiMessage,
+            sender: aiUser ? { id: aiUser.id, email: aiUser.email } : null,
+          },
         });
       } catch (error) {
         this.logger.warn(

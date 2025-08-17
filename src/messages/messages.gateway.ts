@@ -163,19 +163,30 @@ export class MessagesGateway
    * Broadcast AI response to all users in a room
    * This method can be called from the service
    */
-  broadcastAiResponse(roomId: string, aiResponse: any) {
+  broadcastAiResponse(roomId: string, aiResponse: any, sender?: any) {
     this.server.to(`room:${roomId}`).emit('new-message', {
       ...aiResponse,
       messageType: 'ai',
+      sender: sender
+        ? {
+            id: sender.id,
+            email: sender.email,
+          }
+        : null,
     });
     // AI response broadcast to room
   }
 
-  broadcastUserMessage(roomId: string, senderId: string, userMessage: any) {
+  broadcastUserMessage(roomId: string, userMessage: any, sender?: any) {
     this.server.to(`room:${roomId}`).emit('new-message', {
       ...userMessage,
       messageType: 'user',
-      senderId,
+      sender: sender
+        ? {
+            id: sender.id,
+            email: sender.email,
+          }
+        : null,
     });
 
     // User message broadcast to room
