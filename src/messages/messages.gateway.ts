@@ -1,4 +1,4 @@
-import { Logger, UseGuards } from '@nestjs/common';
+import { Logger, UseFilters, UseGuards } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
@@ -9,6 +9,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { WsExceptionFilter } from 'src/common/errors/ws-exception.filter';
 import { WsSupabaseAuthGuard } from 'src/config/guard/ws-jwt-auth.guard';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { MessagesService } from './messages.service';
@@ -22,6 +23,7 @@ import { MessagesService } from './messages.service';
   transports: ['websocket', 'polling'],
   allowEIO3: true,
 })
+@UseFilters(WsExceptionFilter)
 export class MessagesGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {
@@ -171,7 +173,6 @@ export class MessagesGateway
    * This method can be called from the service
    */
   broadcastAiResponse(roomId: string, aiResponse: any) {
-    console.log('aiResponse', aiResponse, roomId);
     this.server.to(`room:${roomId}`).emit('new-message', {
       ...aiResponse,
       messageType: 'ai',

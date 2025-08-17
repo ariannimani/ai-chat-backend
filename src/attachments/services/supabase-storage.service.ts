@@ -53,7 +53,7 @@ export class SupabaseStorageService {
 
       if (error) {
         this.logger.error(`Failed to upload file: ${error.message}`);
-        throw new Error(`Upload failed: ${error.message}`);
+        throw new Error(error.message);
       }
 
       const { data: urlData } = this.supabase.storage
@@ -90,7 +90,7 @@ export class SupabaseStorageService {
 
       if (error) {
         this.logger.error(`Failed to download file: ${error.message}`);
-        throw new Error(`Download failed: ${error.message}`);
+        throw new Error(error.message);
       }
 
       if (!data) {
@@ -120,7 +120,7 @@ export class SupabaseStorageService {
 
       if (error) {
         this.logger.error(`Failed to delete file: ${error.message}`);
-        throw new Error(`Delete failed: ${error.message}`);
+        throw new Error(error.message);
       }
 
       this.logger.log(

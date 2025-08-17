@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { AppModule } from './app.module';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { writeFileSync } from 'fs';
+import { AppModule } from './app.module';
 import { ValidateInputPipe } from './config/pipe/validate.pipe';
 
 async function generateSwaggerJson() {

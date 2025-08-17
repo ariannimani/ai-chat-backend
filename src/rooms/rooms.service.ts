@@ -379,6 +379,7 @@ export class RoomsService {
       const isAlreadyMember = room.members.some(
         (member) => member.id === invitedUser.id,
       );
+
       if (isAlreadyMember) {
         throw new BadRequestException('User is already a member of this room');
       }

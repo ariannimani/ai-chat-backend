@@ -1,11 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsUUID } from 'class-validator';
 
 export class JoinRoomDto {
   @ApiProperty({
     description: 'Invitation code to join the room',
+    example: '266ac7f3f6aa64a1170cc329691bafc3',
   })
   @IsNotEmpty()
-  @IsString()
+  @IsUUID()
   code: string;
 }

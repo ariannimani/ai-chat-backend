@@ -37,13 +37,33 @@ export class WsExceptionFilter extends BaseWsExceptionFilter {
         errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
       }
     } else if (exception instanceof Error) {
-      // Handle generic Error
-      message = exception.message || 'Internal server error';
-      errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
+      // Handle generic Error - check if it's a Supabase error
+      const errorMessage = exception.message || 'Internal server error';
+
+      // Check if this is a Supabase authentication error
+      if (this.isSupabaseAuthError(errorMessage)) {
+        message = errorMessage;
+        errorCode = ErrorCode.AUTH_INVALID_CREDENTIALS;
+      }
+      // Check if this is a Supabase validation error
+      else if (this.isSupabaseValidationError(errorMessage)) {
+        message = errorMessage;
+        errorCode = ErrorCode.VALIDATION_ERROR;
+      }
+      // Check if this is a Supabase rate limit error
+      else if (this.isSupabaseRateLimitError(errorMessage)) {
+        message = errorMessage;
+        errorCode = ErrorCode.EXTERNAL_SERVICE_ERROR;
+      }
+      // Default to internal server error for other errors
+      else {
+        message = errorMessage;
+        errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
+      }
 
       // Log unexpected errors
       this.logger.error(
-        `Unexpected WebSocket error: ${exception.message}`,
+        `Unexpected WebSocket error: ${errorMessage}`,
         exception.stack,
       );
     } else {
@@ -72,5 +92,49 @@ export class WsExceptionFilter extends BaseWsExceptionFilter {
 
     // Emit error to client
     client.emit('error', errorResponse);
+  }
+
+  private isSupabaseAuthError(message: string): boolean {
+    const authErrorPatterns = [
+      'Invalid login credentials',
+      'Email not confirmed',
+      'User not found',
+      'Invalid email or password',
+      'Email not confirmed',
+      'Invalid JWT',
+      'JWT expired',
+      'Invalid refresh token',
+      'User already registered',
+      'Password should be at least',
+      'Unable to validate email address',
+    ];
+    return authErrorPatterns.some((pattern) =>
+      message.toLowerCase().includes(pattern.toLowerCase()),
+    );
+  }
+
+  private isSupabaseValidationError(message: string): boolean {
+    const validationErrorPatterns = [
+      'Invalid email format',
+      'Password should be at least',
+      'User already registered',
+      'Invalid phone number',
+      'Invalid metadata',
+    ];
+    return validationErrorPatterns.some((pattern) =>
+      message.toLowerCase().includes(pattern.toLowerCase()),
+    );
+  }
+
+  private isSupabaseRateLimitError(message: string): boolean {
+    const rateLimitPatterns = [
+      'rate limit',
+      'too many requests',
+      'For security purposes, you can only request this after',
+      'rate limit exceeded',
+    ];
+    return rateLimitPatterns.some((pattern) =>
+      message.toLowerCase().includes(pattern.toLowerCase()),
+    );
   }
 }

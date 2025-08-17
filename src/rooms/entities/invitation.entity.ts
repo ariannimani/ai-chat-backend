@@ -37,7 +37,6 @@ export class Invitation {
 
   @ManyToOne(() => Room, { eager: true })
   @JoinColumn({ name: 'room_id' })
-  @Column({ type: 'uuid', name: 'room_id' })
   room: Room;
 
   @ManyToOne(() => User, { eager: true })

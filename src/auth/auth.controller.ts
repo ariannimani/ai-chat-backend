@@ -20,7 +20,29 @@ export class AuthController {
   @Post('login')
   @Public()
   login(@Body() dto: LoginAuthDto) {
-    return this.authService.login(dto);
+    try {
+      return this.authService.login(dto);
+    } catch (error) {
+      if (error.message.includes('Invalid credentials')) {
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.UNAUTHORIZED,
+            message: error.message,
+            error: 'Unauthorized',
+          },
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: error.message,
+          error: 'Bad Request',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 
   @Post('register')

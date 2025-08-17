@@ -9,7 +9,6 @@ export class SupabaseAuthService {
 
   // Sign up with Supabase Auth (alternative to existing JWT auth)
   async signUpWithSupabase(email: string, password: string, metadata?: any) {
-    console.log({ email, password, metadata });
     try {
       const supabase = this.supabaseService.getClient();
       const { data, error } = await supabase.auth.signUp({
@@ -20,30 +19,8 @@ export class SupabaseAuthService {
         },
       });
 
-      console.log('data', data, error);
-
       if (error) {
-        // Handle rate limiting specifically
-        if (
-          error.message.includes(
-            'For security purposes, you can only request this after',
-          )
-        ) {
-          const match = error.message.match(/after (\d+) seconds?/);
-          const waitTime = match ? match[1] : 'a few';
-          throw new Error(
-            `Rate limit exceeded. Please wait ${waitTime} seconds before trying again.`,
-          );
-        }
-
-        // Handle other potential errors
-        if (error.message.includes('User already registered')) {
-          throw new Error(
-            'An account with this email already exists. Please try logging in instead.',
-          );
-        }
-
-        throw new Error(`Signup failed: ${error.message}`);
+        throw new Error(error.message);
       }
 
       this.logger.log(`User signed up via Supabase: ${email}`);
@@ -64,7 +41,7 @@ export class SupabaseAuthService {
       });
 
       if (error) {
-        throw new Error(`Supabase signin failed: ${error.message}`);
+        throw new Error(error.message);
       }
 
       this.logger.log(`User signed in via Supabase: ${email}`);
@@ -82,7 +59,7 @@ export class SupabaseAuthService {
       const { error } = await supabase.auth.signOut();
 
       if (error) {
-        throw new Error(`Supabase signout failed: ${error.message}`);
+        throw new Error(error.message);
       }
 
       this.logger.log('User signed out via Supabase');
@@ -100,7 +77,7 @@ export class SupabaseAuthService {
       const { data, error } = await supabase.auth.getSession();
 
       if (error) {
-        throw new Error(`Failed to get session: ${error.message}`);
+        throw new Error(error.message);
       }
 
       return data;
@@ -117,7 +94,7 @@ export class SupabaseAuthService {
       const { data, error } = await supabase.auth.refreshSession();
 
       if (error) {
-        throw new Error(`Failed to refresh session: ${error.message}`);
+        throw new Error(error.message);
       }
 
       return data;
@@ -136,7 +113,7 @@ export class SupabaseAuthService {
       });
 
       if (error) {
-        throw new Error(`Password reset failed: ${error.message}`);
+        throw new Error(error.message);
       }
 
       this.logger.log(`Password reset email sent to: ${email}`);
@@ -156,7 +133,7 @@ export class SupabaseAuthService {
       });
 
       if (error) {
-        throw new Error(`Password update failed: ${error.message}`);
+        throw new Error(error.message);
       }
 
       this.logger.log('User password updated via Supabase');

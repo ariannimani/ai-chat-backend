@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CommandModule } from 'nestjs-command';
 import { AiModule } from './ai/ai.module';
@@ -13,6 +13,7 @@ import { UsersModule } from './users/users.module';
 import { AiConfig } from './ai/entities/ai-config.entity';
 import { AiAttachment } from './attachments/entities/ai-attachment.entity';
 import { RoomAttachment } from './attachments/entities/room-attachment.entity';
+import { HttpExceptionFilter } from './common/errors/http-exception.filter';
 import { SupabaseAuthGuard } from './config/guard/supabase-auth.guard';
 import { SupabaseModule } from './config/supabase/supabase.module';
 import { Message } from './messages/entities/message.entity';
@@ -64,6 +65,10 @@ import { User } from './users/entities/user.entity';
     {
       provide: APP_GUARD,
       useClass: SupabaseAuthGuard,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: HttpExceptionFilter,
     },
   ],
 })
