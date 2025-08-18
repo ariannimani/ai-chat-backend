@@ -10,6 +10,7 @@ import { In, Repository } from 'typeorm';
 import { AiProviderFactory } from '../ai/ai-provider.factory';
 import { AiProvider } from '../ai/ai-provider.interface';
 import { AiConfig } from '../ai/entities/ai-config.entity';
+import { MessagesGateway } from '../messages/messages.gateway';
 import { User } from '../users/entities/user.entity';
 import { CreateInvitationDto } from './dto/create-invitation.dto';
 import { CreateRoomDto } from './dto/create-room.dto';
@@ -32,6 +33,7 @@ export class RoomsService {
     private invitationRepository: Repository<Invitation>,
     @InjectRepository(AiConfig)
     private aiConfigRepository: Repository<AiConfig>,
+    private messagesGateway: MessagesGateway,
   ) {}
 
   async create(
@@ -480,6 +482,57 @@ export class RoomsService {
       ].join(', ')}`,
     );
 
+    const registeredUsers = await this.userRepository.find({
+      where: {
+        email: In(uniqueInvitedEmails),
+      },
+      select: ['id', 'email', 'name'],
+    });
+
+    const registeredUsersMap = registeredUsers.reduce(
+      (acc, user) => {
+        acc[user.email] = user;
+        return acc;
+      },
+      {} as Record<string, User>,
+    );
+
+    this.logger.log(
+      `🔍 Found ${registeredUsers.length} registered users out of ${uniqueInvitedEmails.length} invited emails`,
+    );
+
+    // Send WebSocket invitations only to registered users
+    for (const invitation of savedInvitations) {
+      const registeredUser = registeredUsersMap[invitation.invitedEmail];
+
+      if (registeredUser) {
+        try {
+          // Check if messages gateway is available
+          if (!this.messagesGateway) {
+            this.logger.warn(
+              `⚠️ MessagesGateway not available - skipping WebSocket invitation for ${registeredUser.email}`,
+            );
+            continue;
+          }
+
+          this.messagesGateway.broadcastInvitation(registeredUser.id, {
+            ...invitation,
+          });
+          this.logger.log(
+            `📨 WebSocket invitation sent to registered user: ${registeredUser.email}`,
+          );
+        } catch (error) {
+          this.logger.warn(
+            `⚠️ Failed to send WebSocket invitation to ${registeredUser.email}: ${error.message}`,
+          );
+        }
+      } else {
+        this.logger.log(
+          `📧 Invitation created for unregistered email: ${invitation.invitedEmail} (WebSocket not sent)`,
+        );
+      }
+    }
+
     return {
       message: 'Invitations created successfully',
       invitations: savedInvitations,
@@ -719,6 +772,10 @@ export class RoomsService {
       where: { id: roomId },
       relations: ['members'],
     });
+
+    if (!room) {
+      throw new NotFoundException('Room not found');
+    }
 
     const member = room.members.find((member) => member.id === userId);
 

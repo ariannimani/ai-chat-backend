@@ -30,7 +30,6 @@ export class MessagesGateway
   private readonly logger = new Logger(MessagesGateway.name);
 
   constructor(private readonly messagesService: MessagesService) {
-    // Set the gateway reference in the service to enable broadcasting
     this.messagesService.setGateway(this);
   }
 
@@ -39,8 +38,7 @@ export class MessagesGateway
 
   handleConnection(client: Socket) {
     try {
-      // Client connected
-      // No authentication during connection - it happens per-message
+      this.logger.log(`🔌 New WebSocket connection: ${client.id}`);
       client.emit('connection-success', {
         message: 'Connected to message server',
         clientId: client.id,
@@ -56,7 +54,36 @@ export class MessagesGateway
   }
 
   handleDisconnect(client: Socket) {
-    // Client disconnected
+    this.logger.log(`🔌 WebSocket disconnected: ${client.id}`);
+  }
+
+  @SubscribeMessage('authenticate')
+  @UseGuards(WsSupabaseAuthGuard)
+  async authenticate(@ConnectedSocket() client: Socket) {
+    const user = (client.handshake as any).user;
+    this.logger.log(`🔐 Authentication attempt for client: ${client.id}`);
+
+    if (user && user.id) {
+      // Join user-specific room for invitations and notifications
+      const userRoom = `user:${user.id}`;
+      client.join(userRoom);
+
+      this.logger.log(
+        `✅ User ${user.email} (ID: ${user.id}) authenticated and joined room: ${userRoom}`,
+      );
+
+      client.emit('authenticated', {
+        userId: user.id,
+        email: user.email,
+        userRoom: userRoom,
+        message: 'Successfully authenticated and ready to receive invitations',
+      });
+    } else {
+      this.logger.error('❌ Authentication failed - no user data found');
+      client.emit('authentication-failed', {
+        message: 'Authentication failed',
+      });
+    }
   }
 
   @SubscribeMessage('join-room')
@@ -192,7 +219,43 @@ export class MessagesGateway
     // User message broadcast to room
   }
 
-  afterInit() {
-    // WebSocket server initialized
+  broadcastInvitation(userId: string, invitation: any) {
+    const userRoom = `user:${userId}`;
+    this.logger.log(
+      `📨 Broadcasting invitation to ${userRoom} for room "${invitation.roomName}"`,
+    );
+
+    // Check if there are clients in the user's personal room
+    if (this.server && this.server.sockets && this.server.sockets.adapter) {
+      const roomClients = this.server.sockets.adapter.rooms.get(userRoom);
+      this.logger.log(
+        `👥 Clients in ${userRoom}:`,
+        roomClients ? Array.from(roomClients) : 'None',
+      );
+
+      if (!roomClients || roomClients.size === 0) {
+        this.logger.warn(
+          `⚠️ No clients in ${userRoom} - user needs to authenticate first!`,
+        );
+        return;
+      }
+    }
+
+    const invitationData = {
+      ...invitation,
+      timestamp: new Date().toISOString(),
+    };
+
+    this.logger.log(`📤 Sending new-invitation event to ${userRoom}`);
+    this.server.to(userRoom).emit('new-invitation', invitationData);
+    this.logger.log(`✅ Invitation sent successfully`);
+  }
+
+  afterInit(server: Server) {
+    this.server = server;
+    this.logger.log('🚀 WebSocket server initialized successfully');
+    this.logger.log(`📡 Server instance:`, !!this.server);
+    this.logger.log(`🔌 Sockets available:`, !!this.server?.sockets);
+    this.logger.log(`🔗 Adapter available:`, !!this.server?.sockets?.adapter);
   }
 }
