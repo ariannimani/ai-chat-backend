@@ -17,6 +17,7 @@ import { CreateRoomDto } from './dto/create-room.dto';
 import { JoinRoomDto } from './dto/join-room.dto';
 import { UpdateInvitationDto } from './dto/update-invitation.dto';
 import { UpdateRoomAiDto } from './dto/update-room-ai.dto';
+import { UpdateRoomDto } from './dto/update-room.dto';
 import { Invitation, InvitationStatus } from './entities/invitation.entity';
 import { Room } from './entities/room.entity';
 
@@ -186,6 +187,35 @@ export class RoomsService {
     if (!isMember) {
       throw new NotFoundException('Room not found or access denied');
     }
+
+    return room;
+  }
+
+  async update(roomId: string, userId: string, updateRoomDto: UpdateRoomDto) {
+    const room = await this.roomRepository.findOne({
+      where: { id: roomId },
+      relations: ['members', 'admin'],
+    });
+
+    if (!room) {
+      throw new NotFoundException('Room not found');
+    }
+
+    // Check if user is a member
+    const isAdmin = room.admin.id === userId;
+    if (!isAdmin) {
+      throw new NotFoundException('Room not found or access denied');
+    }
+
+    if (updateRoomDto.name) {
+      room.name = updateRoomDto.name;
+    }
+
+    if (updateRoomDto.aiInstructions) {
+      room.aiConfig.instructions = updateRoomDto.aiInstructions;
+    }
+
+    await this.roomRepository.save(room);
 
     return room;
   }

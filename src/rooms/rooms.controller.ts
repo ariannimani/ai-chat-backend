@@ -22,6 +22,7 @@ import { GetMessageDto } from 'src/messages/dto/get-message.dto';
 import { MessagesService } from 'src/messages/messages.service';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { UpdateRoomAiDto } from './dto/update-room-ai.dto';
+import { UpdateRoomDto } from './dto/update-room.dto';
 import { RoomsService } from './rooms.service';
 
 @Controller('rooms')
@@ -107,6 +108,28 @@ export class RoomsController {
     this.logger.log(`🔍 Getting room ${roomId} for user ${userId}`);
 
     return this.roomsService.getById(roomId, userId);
+  }
+
+  @Put(':id')
+  @ApiOperation({
+    summary: 'Update room',
+    description:
+      'Update the name, instructions, or members of a room. You can only update the room if you are admin.',
+  })
+  @ApiParam({ name: 'id', description: 'Room ID' })
+  async update(
+    @Param('id', ParseUUIDPipe) roomId: string,
+    @Body() updateRoomDto: UpdateRoomDto,
+    @Request() req,
+  ) {
+    const userId = req.authUser.id;
+    const userEmail = req.authUser.email;
+
+    this.logger.log(
+      `🔧 User ${userEmail} updating room ${roomId} to ${updateRoomDto.name}`,
+    );
+
+    return this.roomsService.update(roomId, userId, updateRoomDto);
   }
 
   @Put(':id/ai')
